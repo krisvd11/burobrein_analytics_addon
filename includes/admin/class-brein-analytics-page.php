@@ -15,9 +15,10 @@ class Brein_Analytics_Page
     private $map_widget;
     private $visitor_widget;
     private $weekly_widget;
+    private $tracking_widget;
     private $screen_hook;
 
-    public function __construct($role_access_manager, $map_widget, $visitor_widget, $weekly_widget)
+    public function __construct($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget = null)
     {
         if (!is_admin()) {
             return;
@@ -27,8 +28,10 @@ class Brein_Analytics_Page
         $this->map_widget = $map_widget;
         $this->visitor_widget = $visitor_widget;
         $this->weekly_widget = $weekly_widget;
+        $this->tracking_widget = $tracking_widget;
 
         add_action('admin_menu', array($this, 'register_menu'));
+        add_action('admin_menu', array($this, 'reorder_submenu_items'), 100);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_filter('brein_analytics_widget_hooks', array($this, 'register_widget_hooks'));
         add_action('wp_ajax_brein_clear_visitors', array($this, 'ajax_clear_visitors'));
@@ -47,6 +50,15 @@ class Brein_Analytics_Page
             array($this, 'render_page'),
             'dashicons-analytics',
             25
+        );
+
+        add_submenu_page(
+            'brein-analytics',
+            __('Analytics', 'brein-plugin'),
+            __('Overview', 'brein-plugin'),
+            $capability,
+            'brein-analytics',
+            array($this, 'render_page')
         );
     }
 
@@ -76,98 +88,98 @@ class Brein_Analytics_Page
         return array_values(array_unique($hooks));
     }
 
+    public function reorder_submenu_items()
+    {
+        global $submenu;
+
+        if (!isset($submenu['brein-analytics']) || !is_array($submenu['brein-analytics'])) {
+            return;
+        }
+
+        $items = $submenu['brein-analytics'];
+        $ordered = array();
+        $remaining = array();
+
+        foreach ($items as $item) {
+            $slug = isset($item[2]) ? (string) $item[2] : '';
+
+            if ($slug === 'brein-analytics') {
+                $ordered['overview'] = $item;
+                continue;
+            }
+
+            if ($slug === 'edit.php?post_type=brein_tracking_item') {
+                $ordered['tracking_modules'] = $item;
+                continue;
+            }
+
+            $remaining[] = $item;
+        }
+
+        $submenu['brein-analytics'] = array_values(array_filter(
+            array_merge(
+                isset($ordered['overview']) ? array($ordered['overview']) : array(),
+                isset($ordered['tracking_modules']) ? array($ordered['tracking_modules']) : array(),
+                $remaining
+            )
+        ));
+    }
+
     public function render_page()
     {
         if (!current_user_can($this->get_required_capability())) {
             wp_die(__('You do not have permission to access this page.', 'brein-plugin'));
         }
 
-        echo '<div class="wrap">';
-        echo '<div class="brein-analytics-header">';
-        echo '<h1>' . esc_html__('Analytics', 'brein-plugin') . '</h1>';
-        echo '<div class="brein-analytics-actions">';
-        echo '<button type="button" class="button button-secondary" id="brein-analytics-clear" data-nonce="' . esc_attr(wp_create_nonce('brein_analytics_actions')) . '">' . esc_html__('Clear Users', 'brein-plugin') . '</button>';
-        echo '<button type="button" class="button button-secondary" id="brein-analytics-seed" data-nonce="' . esc_attr(wp_create_nonce('brein_analytics_actions')) . '">' . esc_html__('Generate Dummy Users', 'brein-plugin') . '</button>';
-        echo '</div>';
-        echo '</div>';
+        $clear_nonce = wp_create_nonce('brein_analytics_actions');
+        ob_start();
+        ?>
+        <div class="wrap">
+            <div class="brein-analytics-header">
+                <h1><?php echo esc_html__('Analytics', 'brein-plugin'); ?></h1>
+                <div class="brein-analytics-actions">
+                    <button type="button" class="button button-secondary" id="brein-analytics-clear" data-nonce="<?php echo esc_attr($clear_nonce); ?>"><?php echo esc_html__('Clear Users', 'brein-plugin'); ?></button>
+                    <button type="button" class="button button-secondary" id="brein-analytics-seed" data-nonce="<?php echo esc_attr($clear_nonce); ?>"><?php echo esc_html__('Generate Dummy Users', 'brein-plugin'); ?></button>
+                </div>
+            </div>
 
-        echo '<style>
-            .brein-analytics-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-            .brein-analytics-actions { display: inline-flex; gap: 8px; }
-            .brein-weekly-card { padding: 16px 0px; }
-            .brein-weekly-title, .brein-weekly-number, .brein-weekly-sub, .brein-weekly-sources { padding: 0px 16px; }
-            .brein-analytics-overview { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; padding: 16px 0; }
-            .brein-analytics-box { background: #ffffff; border: 1px solid #e6e6e6; border-radius: 12px; overflow: hidden; }
-            .brein-analytics-box--full { grid-column: 1 / -1; }
-            .brein-analytics-box--half { grid-column: span 6; min-width: 0; }
-            .brein-analytics-box__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; background: #fbfbfb; }
-            .brein-analytics-box__title { margin: 0; font-size: 13px; font-weight: 600; color: #1d2327; }
-            .brein-analytics-box__actions { display: inline-flex; flex-direction: column; gap: 6px; }
-            .brein-analytics-box__btn { border: 1px solid #d8d8d8; background: #ffffff; color: #1d2327; border-radius: 8px; width: 30px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
-            .brein-analytics-box__btn:hover { background: #f5f5f5; }
-            .brein-analytics-box__btn .dashicons { font-size: 16px; width: 16px; height: 16px; }
-            .brein-analytics-box[data-collapsed="true"] .brein-analytics-box__body { display: none; }
-            .brein-analytics-box[data-collapsed="true"] .brein-analytics-box__toggle .dashicons:before { content: "\\f132"; }
-            .brein-analytics-box[data-collapsed="false"] .brein-analytics-box__toggle .dashicons:before { content: "\\f460"; }
-            /* fullscreen removed from box UI */
-            .brein-analytics-box__header { cursor: move; min-width: 0; }
-            .brein-analytics-placeholder { border: 2px dashed #cfcfcf; border-radius: 12px; background: #fafafa; min-height: 120px; }
-            .brein-analytics-box { min-width: 0; }
-            .brein-analytics-box * { min-width: 0; }
-            @media (max-width: 1200px) {
-                .brein-analytics-overview { grid-template-columns: 1fr; }
-                .brein-analytics-box--half { grid-column: 1 / -1; }
-            }
-        </style>';
+            <style>
+                .brein-analytics-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+                .brein-analytics-actions { display: inline-flex; gap: 8px; }
+                .brein-weekly-card { padding: 16px 16px; }
+                .brein-analytics-overview { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; padding: 16px 0; }
+                .brein-analytics-box { background: #ffffff; border: 1px solid #e6e6e6; border-radius: 12px; overflow: hidden; }
+                .brein-analytics-box--full { grid-column: 1 / -1; }
+                .brein-analytics-box--half { grid-column: span 6; min-width: 0; }
+                .brein-analytics-box__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f0f0f0; background: #fbfbfb; }
+                .brein-analytics-box__title { margin: 0; font-size: 13px; font-weight: 600; color: #1d2327; }
+                .brein-analytics-box__actions { display: inline-flex; flex-direction: column; gap: 6px; }
+                .brein-analytics-box__btn { border: 1px solid #d8d8d8; background: #ffffff; color: #1d2327; border-radius: 8px; width: 30px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+                .brein-analytics-box__btn:hover { background: #f5f5f5; }
+                .brein-analytics-box__btn .dashicons { font-size: 16px; width: 16px; height: 16px; }
+                .brein-analytics-box[data-collapsed="true"] .brein-analytics-box__body { display: none; }
+                .brein-analytics-box[data-collapsed="true"] .brein-analytics-box__toggle .dashicons:before { content: "\f132"; }
+                .brein-analytics-box[data-collapsed="false"] .brein-analytics-box__toggle .dashicons:before { content: "\f460"; }
+                .brein-analytics-box__header { cursor: move; min-width: 0; }
+                .brein-analytics-placeholder { border: 2px dashed #cfcfcf; border-radius: 12px; background: #fafafa; min-height: 120px; }
+                .brein-analytics-box { min-width: 0; }
+                .brein-analytics-box * { min-width: 0; }
+                @media (max-width: 1200px) {
+                    .brein-analytics-overview { grid-template-columns: 1fr; }
+                    .brein-analytics-box--half { grid-column: 1 / -1; }
+                }
+            </style>
 
-        echo '<div class="brein-analytics-overview" style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;">';
+            <div class="brein-analytics-overview" style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;">
+                <?php $this->render_panel('brein-analytics-map', __('Live Visitor Map (Last 5 Minutes)', 'brein-plugin'), 'brein-analytics-map-body', 'half', array($this->map_widget, 'render_map_widget')); ?>
+                <?php $this->render_panel('brein-analytics-weekly-visitors', __('Weekly Visitors', 'brein-plugin'), 'brein-analytics-weekly-visitors-body', 'half', array($this->weekly_widget, 'render_widget')); ?>
+                <?php $this->render_panel('brein-analytics-tracking-module', __('Tracking Module', 'brein-plugin'), 'brein-analytics-tracking-module-body', 'half', array($this->tracking_widget, 'render_widget')); ?>
+                <?php $this->render_panel('brein-analytics-live-visitors', __('Live Visitors', 'brein-plugin'), 'brein-analytics-live-visitors-body', 'full', array($this->visitor_widget, 'render_widget')); ?>
+            </div>
+        </div>
 
-        echo '<section class="brein-analytics-box brein-analytics-box--half" id="brein-analytics-map" data-collapsed="false" style="grid-column:span 6;">';
-        echo '<div class="brein-analytics-box__header">';
-        echo '<h2 class="brein-analytics-box__title">' . esc_html__('Live Visitor Map (Last 5 Minutes)', 'brein-plugin') . '</h2>';
-        echo '<div class="brein-analytics-box__actions">';
-        echo '<button type="button" class="brein-analytics-box__btn brein-analytics-box__toggle" aria-expanded="true" aria-controls="brein-analytics-map-body"><span class="dashicons"></span><span class="screen-reader-text">' . esc_html__('Toggle panel: Live Visitor Map', 'brein-plugin') . '</span></button>';
-        echo '</div>';
-        echo '</div>';
-        echo '<div class="brein-analytics-box__body" id="brein-analytics-map-body">';
-        if ($this->map_widget) {
-            $this->map_widget->render_map_widget();
-        }
-        echo '</div>';
-        echo '</section>';
-
-        echo '<section class="brein-analytics-box brein-analytics-box--half" id="brein-analytics-weekly-visitors" data-collapsed="false" style="grid-column:span 6;">';
-        echo '<div class="brein-analytics-box__header">';
-        echo '<h2 class="brein-analytics-box__title">' . esc_html__('Weekly Visitors', 'brein-plugin') . '</h2>';
-        echo '<div class="brein-analytics-box__actions">';
-        echo '<button type="button" class="brein-analytics-box__btn brein-analytics-box__toggle" aria-expanded="true" aria-controls="brein-analytics-weekly-visitors-body"><span class="dashicons"></span><span class="screen-reader-text">' . esc_html__('Toggle panel: Weekly Visitors', 'brein-plugin') . '</span></button>';
-        echo '</div>';
-        echo '</div>';
-        echo '<div class="brein-analytics-box__body" id="brein-analytics-weekly-visitors-body">';
-        if ($this->weekly_widget) {
-            $this->weekly_widget->render_widget();
-        }
-        echo '</div>';
-        echo '</section>';
-
-        echo '<section class="brein-analytics-box brein-analytics-box--full" id="brein-analytics-live-visitors" data-collapsed="false" style="grid-column:1 / -1;">';
-        echo '<div class="brein-analytics-box__header">';
-        echo '<h2 class="brein-analytics-box__title">' . esc_html__('Live Visitors', 'brein-plugin') . '</h2>';
-        echo '<div class="brein-analytics-box__actions">';
-        echo '<button type="button" class="brein-analytics-box__btn brein-analytics-box__toggle" aria-expanded="true" aria-controls="brein-analytics-live-visitors-body"><span class="dashicons"></span><span class="screen-reader-text">' . esc_html__('Toggle panel: Live Visitors', 'brein-plugin') . '</span></button>';
-        echo '</div>';
-        echo '</div>';
-        echo '<div class="brein-analytics-box__body" id="brein-analytics-live-visitors-body">';
-        if ($this->visitor_widget) {
-            $this->visitor_widget->render_widget();
-        }
-        echo '</div>';
-        echo '</section>';
-
-        echo '</div>';
-        echo '</div>';
-
-        echo "<script>
+        <script>
+        <?php echo "
             jQuery(function($){
                 function runAction(action, nonce, label) {
                     var confirmText = action === 'brein_clear_visitors'
@@ -249,7 +261,43 @@ class Brein_Analytics_Page
                     });
                 }
             });
-        </script>";
+        "; ?>
+        </script>
+        <?php
+        echo ob_get_clean();
+    }
+
+    private function render_panel($section_id, $title, $body_id, $size, $callback)
+    {
+        $section_class = $size === 'full'
+            ? 'brein-analytics-box brein-analytics-box--full'
+            : 'brein-analytics-box brein-analytics-box--half';
+        $section_style = $size === 'full' ? 'grid-column:1 / -1;' : 'grid-column:span 6;';
+        $toggle_label = sprintf(
+            /* translators: %s: panel title */
+            __('Toggle panel: %s', 'brein-plugin'),
+            $title
+        );
+        ?>
+        <section class="<?php echo esc_attr($section_class); ?>" id="<?php echo esc_attr($section_id); ?>" data-collapsed="false" style="<?php echo esc_attr($section_style); ?>">
+            <div class="brein-analytics-box__header">
+                <h2 class="brein-analytics-box__title"><?php echo esc_html($title); ?></h2>
+                <div class="brein-analytics-box__actions">
+                    <button type="button" class="brein-analytics-box__btn brein-analytics-box__toggle" aria-expanded="true" aria-controls="<?php echo esc_attr($body_id); ?>">
+                        <span class="dashicons"></span>
+                        <span class="screen-reader-text"><?php echo esc_html($toggle_label); ?></span>
+                    </button>
+                </div>
+            </div>
+            <div class="brein-analytics-box__body" id="<?php echo esc_attr($body_id); ?>">
+                <?php
+                if (is_array($callback) && isset($callback[0]) && $callback[0] && is_callable($callback)) {
+                    call_user_func($callback);
+                }
+                ?>
+            </div>
+        </section>
+        <?php
     }
 
     public function ajax_clear_visitors()

@@ -10,6 +10,7 @@
     var values = [];
     var labels = [];
     var dates = [];
+    var seriesLabel = chart.getAttribute('data-series-label') || 'Visitors';
     try {
       values = JSON.parse(chart.getAttribute('data-values') || '[]');
       labels = JSON.parse(chart.getAttribute('data-labels') || '[]');
@@ -29,7 +30,7 @@
         '</div>' +
         '<div class=\"brein-weekly-tooltip-row\">' +
         '<span class=\"brein-weekly-tooltip-swatch\"></span>' +
-        '<span>Visitors</span>' +
+        '<span>' + seriesLabel + '</span>' +
         '<span>' +
         value +
         '</span>' +

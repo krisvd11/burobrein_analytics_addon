@@ -23,6 +23,7 @@ class Brein_Visitor_Tracker
     {
         add_action('init', array($this, 'maybe_upgrade_table'), 5);
         add_action('init', array($this, 'maybe_track_visitor'), 9);
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_click_tracking_assets'));
         add_action('wp_ajax_nopriv_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_nopriv_brein_track_recording_event', array($this, 'ajax_track_recording_event'));
@@ -315,9 +316,25 @@ class Brein_Visitor_Tracker
 
         $payload = array();
         if ($event_type === 'click') {
+            $class_names = array();
+            if (isset($_POST['class_names'])) {
+                $decoded_classes = json_decode(wp_unslash($_POST['class_names']), true);
+                if (is_array($decoded_classes)) {
+                    foreach ($decoded_classes as $class_name) {
+                        $class_name = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $class_name);
+                        if ($class_name !== '') {
+                            $class_names[] = $class_name;
+                        }
+                    }
+                    $class_names = array_values(array_unique($class_names));
+                }
+            }
+
             $payload = array(
                 'timestamp_ms' => isset($_POST['timestamp_ms']) ? max(0, intval(wp_unslash($_POST['timestamp_ms']))) : $this->current_timestamp_ms(),
                 'selector' => isset($_POST['selector']) ? $this->sanitize_text_field_deep(wp_unslash($_POST['selector'])) : '',
+                'class_names' => $class_names,
+                'element_id' => isset($_POST['element_id']) ? preg_replace('/[^A-Za-z0-9_-]/', '', (string) wp_unslash($_POST['element_id'])) : '',
                 'viewport_width' => isset($_POST['viewport_width']) ? max(0, intval(wp_unslash($_POST['viewport_width']))) : 0,
                 'viewport_height' => isset($_POST['viewport_height']) ? max(0, intval(wp_unslash($_POST['viewport_height']))) : 0,
                 'x' => isset($_POST['x']) ? max(0, intval(wp_unslash($_POST['x']))) : 0,
@@ -358,6 +375,30 @@ class Brein_Visitor_Tracker
         );
 
         wp_send_json_success();
+    }
+
+    public function enqueue_click_tracking_assets()
+    {
+        if (is_admin() || $this->is_recording_preview_request()) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'brein-click-tracker',
+            plugins_url('assets/js/brein-click-tracker.js', BREIN_ANALYTICS_PLUGIN_FILE),
+            array(),
+            '1.0.0',
+            true
+        );
+
+        wp_localize_script(
+            'brein-click-tracker',
+            'breinClickTracker',
+            array(
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('brein_track_recording_event'),
+            )
+        );
     }
 
     private function has_tracking_consent()
