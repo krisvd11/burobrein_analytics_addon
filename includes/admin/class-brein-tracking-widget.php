@@ -28,7 +28,7 @@ class Brein_Tracking_Widget
         add_action('init', array($this, 'remove_default_post_type_supports'), 20);
         add_action('admin_init', array($this, 'maybe_migrate_legacy_tracking_classes'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
-        add_action('add_meta_boxes', array($this, 'register_meta_boxes'));
+        add_action('add_meta_boxes', array($this, 'register_meta_boxes'), 10, 2);
         add_action('admin_head-post.php', array($this, 'hide_title_field'));
         add_action('admin_head-post-new.php', array($this, 'hide_title_field'));
         add_action('save_post_' . self::POST_TYPE, array($this, 'save_tracking_item'));
@@ -193,6 +193,19 @@ class Brein_Tracking_Widget
                                     <div class="brein-weekly-source-name brein-tracking-source-name">
                                     <img src="<?php echo get_site_icon_url(); ?>" alt="Site Icon" class="site_icon_tracking">
 
+                                    <?php
+
+                                    if ($tracking['type'] === 'page') {
+                                        echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open-icon lucide-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>';
+                                    }
+                                 elseif ($tracking['type'] === 'class') {
+                                        echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-dot-icon lucide-dot"><circle cx="12.1" cy="12.1" r="1"/></svg>';
+                                    } else {
+                                        echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hash-icon lucide-hash"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>';
+                                    }
+
+?>
+
                                             <span><?php echo esc_html($label); ?></span>
                                         </div>
                                         <div class="brein-weekly-right">
@@ -217,16 +230,27 @@ class Brein_Tracking_Widget
         echo ob_get_clean();
     }
 
-    public function register_meta_boxes()
+    public function register_meta_boxes($post_type, $post)
     {
-        add_meta_box(
-            'brein-tracking-settings',
-            __('Tracking Settings', 'brein-plugin'),
-            array($this, 'render_settings_meta_box'),
-            self::POST_TYPE,
-            'normal',
-            'high'
+        if ($post_type !== self::POST_TYPE) {
+            return;
+        }
+
+        $tracking = $post instanceof WP_Post ? $this->get_tracking_config($post->ID) : array(
+            'type' => 'class',
+            'value' => '',
         );
+
+        if ($tracking['value'] === '') {
+            add_meta_box(
+                'brein-tracking-settings',
+                __('Tracking Settings', 'brein-plugin'),
+                array($this, 'render_settings_meta_box'),
+                self::POST_TYPE,
+                'normal',
+                'high'
+            );
+        }
 
         add_meta_box(
             'brein-tracking-results',
@@ -240,9 +264,9 @@ class Brein_Tracking_Widget
 
     public function render_settings_meta_box($post)
     {
+        $tracking = $this->get_tracking_config($post->ID);
         wp_nonce_field('brein_save_tracking_item', 'brein_tracking_item_nonce');
 
-        $tracking = $this->get_tracking_config($post->ID);
         $selected_page_id = $tracking['type'] === 'page' ? $this->get_page_id_from_path($tracking['value']) : 0;
         $page_dropdown = wp_dropdown_pages(
             array(
@@ -285,6 +309,7 @@ class Brein_Tracking_Widget
             <?php echo $page_dropdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
         <p class="description" id="brein-tracking-value-help"><?php echo esc_html($this->get_tracking_help_text($tracking['type'])); ?></p>
+
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 var typeField = document.getElementById('brein-tracking-type');
@@ -362,6 +387,10 @@ class Brein_Tracking_Widget
             .brein-tracking-metabox-list li:last-child { border-bottom: 0; }
             .brein-tracking-click-card { width: 100%; max-width: none; }
             .brein-tracking-click-card .brein-weekly-chart { height: 280px; }
+            .brein-tracking-click-card .analytics-badge-bg { background: #a8efcf; }
+            .brein-tracking-click-card .brein-weekly-dot { border-color: #56e39f; }
+            .brein-tracking-click-card .brein-weekly-tooltip { border-color: #d8f8e8; }
+            .brein-tracking-click-card .brein-weekly-tooltip-swatch { background: #56e39f; }
         </style>
 
         <div class="brein-tracking-metabox-summary">
@@ -1048,7 +1077,7 @@ class Brein_Tracking_Widget
         ob_start();
         ?>
         <div class="brein-tracking-table-graph">
-            <div class="brein-weekly-card">
+            <div class="brein-weekly-card brein-tracking-click-card">
                 <?php echo $this->render_chart_svg($values, $days, __('Clicks', 'brein-plugin')); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                 <div class="brein-weekly-hoverline" aria-hidden="true"></div>
                 <div class="brein-weekly-dot" aria-hidden="true"></div>
