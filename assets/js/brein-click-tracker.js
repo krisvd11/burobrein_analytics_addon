@@ -8,6 +8,47 @@
     return;
   }
 
+  function getConsentValue() {
+    var value = '; ' + document.cookie;
+    var parts = value.split('; brein_cookie_compliance=');
+    if (parts.length === 2) {
+      return parts.pop().split(';').shift();
+    }
+
+    return '';
+  }
+
+  function getPreferences() {
+    var value = getConsentValue();
+    var defaults = {
+      necessary: true,
+      analytics: false,
+      recordings: false
+    };
+
+    if (!value || value === 'decline') {
+      return defaults;
+    }
+
+    if (value === 'accept') {
+      defaults.analytics = true;
+      defaults.recordings = true;
+      return defaults;
+    }
+
+    try {
+      var parsed = JSON.parse(decodeURIComponent(value));
+      defaults.analytics = !!parsed.analytics;
+      defaults.recordings = !!parsed.recordings;
+    } catch (error) {}
+
+    return defaults;
+  }
+
+  function hasConsent() {
+    return !!getPreferences().recordings;
+  }
+
   function getTextLabel(element) {
     if (!element) {
       return '';
@@ -59,6 +100,10 @@
         return;
       }
 
+      if (!hasConsent()) {
+        return;
+      }
+
       var classNames = getClassNames(target);
       var elementId = getElementId(target);
       if (!classNames.length && !elementId) {
@@ -94,4 +139,8 @@
     },
     true
   );
+
+  document.addEventListener('breinCookieConsentChanged', function () {
+    // Listener checks consent at send-time; this keeps behaviour in sync without reload.
+  });
 })();

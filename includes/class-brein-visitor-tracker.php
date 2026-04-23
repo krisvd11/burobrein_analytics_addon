@@ -18,11 +18,13 @@ class Brein_Visitor_Tracker
     const RECORDING_SESSION_COOKIE = 'brein_recording_session_id';
     const DB_VERSION = '1.6.0';
     const SESSION_TTL = 1800;
+    const DEFAULT_RETENTION_DAYS = 180;
 
     public function __construct()
     {
         add_action('init', array($this, 'maybe_upgrade_table'), 5);
         add_action('init', array($this, 'maybe_track_visitor'), 9);
+        add_action('init', array($this, 'purge_expired_tracking_data'), 20);
         add_action('wp_enqueue_scripts', array($this, 'enqueue_click_tracking_assets'));
         add_action('wp_ajax_nopriv_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
@@ -100,7 +102,7 @@ class Brein_Visitor_Tracker
             return;
         }
 
-        if (!$this->has_tracking_consent()) {
+        if (!$this->has_tracking_consent('analytics')) {
             return;
         }
 
@@ -176,12 +178,14 @@ class Brein_Visitor_Tracker
 
         $visitor_id = isset($_COOKIE[self::COOKIE]) ? sanitize_text_field(wp_unslash($_COOKIE[self::COOKIE])) : '';
         if ($visitor_id === '') {
-            $visitor_id = md5($ip . '|' . substr($user_agent, 0, 120));
+            $visitor_id = $this->generate_visitor_id();
             $this->set_visitor_cookie($visitor_id);
         }
 
         $avatar_url = 'https://api.dicebear.com/9.x/notionists/svg?seed=' . rawurlencode($visitor_id);
         $device = $this->detect_device($user_agent);
+        $user_agent_summary = $this->summarize_user_agent($user_agent);
+        $masked_ip = $this->mask_ip_address($ip);
         $geo = $this->lookup_geo($ip);
         $lat = isset($geo['lat']) ? $geo['lat'] : null;
         $lon = isset($geo['lon']) ? $geo['lon'] : null;
@@ -213,11 +217,11 @@ class Brein_Visitor_Tracker
                       WHERE visitor_id = %s",
                     $now,
                     $session['is_new'] ? 1 : 0,
-                    $ip,
+                    $masked_ip,
                     $country,
                     $country_code,
                     $referer,
-                    $user_agent,
+                    $user_agent_summary,
                     $device,
                     $avatar_url,
                     $lat,
@@ -234,11 +238,11 @@ class Brein_Visitor_Tracker
                         (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)",
                     $visitor_id,
                     $avatar_url,
-                    $ip,
+                    $masked_ip,
                     $country,
                     $country_code,
                     $referer,
-                    $user_agent,
+                    $user_agent_summary,
                     $device,
                     $lat,
                     $lon,
@@ -272,7 +276,7 @@ class Brein_Visitor_Tracker
     {
         check_ajax_referer('brein_track_consent_visitor', 'nonce');
 
-        if (!$this->has_tracking_consent()) {
+        if (!$this->has_tracking_consent('analytics')) {
             wp_send_json_error(array('message' => __('Consent required.', 'brein-plugin')));
         }
 
@@ -294,7 +298,7 @@ class Brein_Visitor_Tracker
             wp_send_json_success(array('ignored' => true));
         }
 
-        if (!$this->has_tracking_consent()) {
+        if (!$this->has_tracking_consent('recordings')) {
             wp_send_json_error(array('message' => __('Consent required.', 'brein-plugin')));
         }
 
@@ -306,7 +310,7 @@ class Brein_Visitor_Tracker
         $visitor_id = isset($_COOKIE[self::COOKIE]) ? sanitize_text_field(wp_unslash($_COOKIE[self::COOKIE])) : '';
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
         if ($visitor_id === '') {
-            $visitor_id = md5($this->get_client_ip() . '|' . substr($user_agent, 0, 120));
+            $visitor_id = $this->generate_visitor_id();
             $this->set_visitor_cookie($visitor_id);
         }
 
@@ -401,18 +405,72 @@ class Brein_Visitor_Tracker
         );
     }
 
-    private function has_tracking_consent()
+    private function has_tracking_consent($category = 'analytics')
     {
-        $options = get_option('brein_cookie_compliance_options', array());
-        $enabled = !empty($options['enabled']);
-        if (!$enabled) {
-            return true;
-        }
+        $preferences = $this->get_cookie_preferences();
+
+        return !empty($preferences[$category]);
+    }
+
+    private function get_cookie_preferences()
+    {
+        $defaults = array(
+            'necessary' => true,
+            'analytics' => false,
+            'recordings' => false,
+        );
 
         $cookie_name = 'brein_cookie_compliance';
         $consent = isset($_COOKIE[$cookie_name]) ? sanitize_text_field(wp_unslash($_COOKIE[$cookie_name])) : '';
 
-        return $consent === 'accept';
+        if ($consent === '' || $consent === 'decline') {
+            return $defaults;
+        }
+
+        if ($consent === 'accept') {
+            $defaults['analytics'] = true;
+            $defaults['recordings'] = true;
+            return $defaults;
+        }
+
+        $decoded = json_decode(rawurldecode($consent), true);
+        if (!is_array($decoded)) {
+            return $defaults;
+        }
+
+        $defaults['analytics'] = !empty($decoded['analytics']);
+        $defaults['recordings'] = !empty($decoded['recordings']);
+
+        return $defaults;
+    }
+
+    public function purge_expired_tracking_data()
+    {
+        if (get_transient('brein_tracking_cleanup_lock')) {
+            return;
+        }
+
+        set_transient('brein_tracking_cleanup_lock', 1, HOUR_IN_SECONDS);
+
+        global $wpdb;
+
+        $retention_days = $this->get_tracking_retention_days();
+        $visitors_table = $wpdb->prefix . self::TABLE;
+        $events_table = $wpdb->prefix . self::EVENTS_TABLE;
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$events_table} WHERE created_at < (NOW() - INTERVAL %d DAY)",
+                $retention_days
+            )
+        );
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$visitors_table} WHERE last_seen < (NOW() - INTERVAL %d DAY)",
+                $retention_days
+            )
+        );
     }
 
     private function set_visitor_cookie($visitor_id)
@@ -637,6 +695,67 @@ class Brein_Visitor_Tracker
         return 'desktop';
     }
 
+    private function summarize_user_agent($user_agent)
+    {
+        $ua = strtolower((string) $user_agent);
+
+        $browser = 'Unknown browser';
+        if (strpos($ua, 'edg/') !== false) {
+            $browser = 'Edge';
+        } elseif (strpos($ua, 'chrome/') !== false && strpos($ua, 'edg/') === false) {
+            $browser = 'Chrome';
+        } elseif (strpos($ua, 'firefox/') !== false) {
+            $browser = 'Firefox';
+        } elseif (strpos($ua, 'safari/') !== false && strpos($ua, 'chrome/') === false) {
+            $browser = 'Safari';
+        }
+
+        $platform = 'Unknown OS';
+        if (strpos($ua, 'windows') !== false) {
+            $platform = 'Windows';
+        } elseif (strpos($ua, 'mac os') !== false || strpos($ua, 'macintosh') !== false) {
+            $platform = 'macOS';
+        } elseif (strpos($ua, 'android') !== false) {
+            $platform = 'Android';
+        } elseif (strpos($ua, 'iphone') !== false || strpos($ua, 'ipad') !== false || strpos($ua, 'ios') !== false) {
+            $platform = 'iOS';
+        } elseif (strpos($ua, 'linux') !== false) {
+            $platform = 'Linux';
+        }
+
+        return $browser . ' on ' . $platform;
+    }
+
+    private function mask_ip_address($ip)
+    {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '';
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $parts = explode('.', $ip);
+            $parts[3] = '0';
+            return implode('.', $parts);
+        }
+
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $parts = explode(':', $ip);
+            $parts = array_pad($parts, 8, '0');
+            $parts[6] = '0000';
+            $parts[7] = '0000';
+            return implode(':', $parts);
+        }
+
+        return '';
+    }
+
+    private function generate_visitor_id()
+    {
+        return function_exists('wp_generate_uuid4')
+            ? wp_generate_uuid4()
+            : md5(uniqid('brein_visitor_', true));
+    }
+
     private function lookup_geo($ip)
     {
         if (empty($ip) || !$this->is_public_ip($ip)) {
@@ -665,6 +784,9 @@ class Brein_Visitor_Tracker
         if ($lat === null || $lon === null) {
             return array();
         }
+
+        $lat = round($lat, 1);
+        $lon = round($lon, 1);
 
         $result = array('lat' => $lat, 'lon' => $lon, 'country' => $country, 'country_code' => $country_code);
         set_transient($cache_key, $result, DAY_IN_SECONDS * 7);
@@ -769,5 +891,13 @@ class Brein_Visitor_Tracker
             'country' => isset($data['country']) ? $data['country'] : '',
             'country_code' => isset($data['countryCode']) ? $data['countryCode'] : '',
         );
+    }
+
+    private function get_tracking_retention_days()
+    {
+        $options = get_option('brein_cookie_compliance_options', array());
+        $retention_days = isset($options['data_retention_days']) ? (int) $options['data_retention_days'] : self::DEFAULT_RETENTION_DAYS;
+
+        return max(1, $retention_days);
     }
 }

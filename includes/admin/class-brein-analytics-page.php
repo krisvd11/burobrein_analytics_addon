@@ -120,12 +120,18 @@ class Brein_Analytics_Page
                 continue;
             }
 
+            if ($slug === 'brein-cookie-compliance') {
+                $ordered['cookie_compliance'] = $item;
+                continue;
+            }
+
             $remaining[] = $item;
         }
 
         $submenu['brein-analytics'] = array_values(array_filter(
             array_merge(
                 isset($ordered['overview']) ? array($ordered['overview']) : array(),
+                isset($ordered['cookie_compliance']) ? array($ordered['cookie_compliance']) : array(),
                 isset($ordered['tracking_modules']) ? array($ordered['tracking_modules']) : array(),
                 isset($ordered['funnels']) ? array($ordered['funnels']) : array(),
                 $remaining

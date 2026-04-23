@@ -289,17 +289,14 @@
 }
 
 .brein-funnel-widget__toolbar {
-  padding: 16px 16px 0;
+  padding: 16px 0px;
 }
 
 .brein-funnel-widget__select {
-  min-width: 240px;
-  max-width: 100%;
+  min-width: 100% !important;
+  border: 1px solid #e6e6e6 !important;
 }
 
-.brein-funnel-widget__viewer {
-  padding: 12px 16px 16px;
-}
 
 .brein-funnel-widget__panel .brein-funnel-flow-card {
   margin-bottom: 0;
@@ -731,6 +728,7 @@
   .brein-funnel-widget__select {
     width: 100%;
     min-width: 0;
+
   }
 
   .brein-funnel-flow-card__canvas {
