@@ -198,19 +198,19 @@ class Brein_Tracking_Widget
                                     if ($tracking['type'] === 'page') {
                                         echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-book-open-icon lucide-book-open"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>';
                                     }
-                                 elseif ($tracking['type'] === 'class') {
+                                    elseif ($tracking['type'] === 'class') {
                                         echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-dot-icon lucide-dot"><circle cx="12.1" cy="12.1" r="1"/></svg>';
                                     } else {
                                         echo '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hash-icon lucide-hash"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>';
-                                    }
-
-?>
+                                    } 
+                                    
+                                    ?>
 
                                             <span><?php echo esc_html($label); ?></span>
                                         </div>
                                         <div class="brein-weekly-right">
                                             <div class="brein-weekly-source-bar">
-                                                <div class="brein-weekly-source-fill" style="width:<?php echo esc_attr($width); ?>%;"></div>
+                                                <div class="brein-weekly-source-fill" style="background: #56E3A0 !important; width:<?php echo esc_attr($width); ?>%;"></div>
                                             </div>
                                             <div class="brein-number"><?php echo esc_html(number_format_i18n($clicks)); ?></div>
                                         </div>

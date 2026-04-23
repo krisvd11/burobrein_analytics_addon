@@ -16,9 +16,10 @@ class Brein_Analytics_Page
     private $visitor_widget;
     private $weekly_widget;
     private $tracking_widget;
+    private $funnel_widget;
     private $screen_hook;
 
-    public function __construct($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget = null)
+    public function __construct($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget = null, $funnel_widget = null)
     {
         if (!is_admin()) {
             return;
@@ -29,6 +30,7 @@ class Brein_Analytics_Page
         $this->visitor_widget = $visitor_widget;
         $this->weekly_widget = $weekly_widget;
         $this->tracking_widget = $tracking_widget;
+        $this->funnel_widget = $funnel_widget;
 
         add_action('admin_menu', array($this, 'register_menu'));
         add_action('admin_menu', array($this, 'reorder_submenu_items'), 100);
@@ -113,6 +115,11 @@ class Brein_Analytics_Page
                 continue;
             }
 
+            if ($slug === 'edit.php?post_type=brein_funnel') {
+                $ordered['funnels'] = $item;
+                continue;
+            }
+
             $remaining[] = $item;
         }
 
@@ -120,6 +127,7 @@ class Brein_Analytics_Page
             array_merge(
                 isset($ordered['overview']) ? array($ordered['overview']) : array(),
                 isset($ordered['tracking_modules']) ? array($ordered['tracking_modules']) : array(),
+                isset($ordered['funnels']) ? array($ordered['funnels']) : array(),
                 $remaining
             )
         ));
@@ -174,6 +182,7 @@ class Brein_Analytics_Page
                 <?php $this->render_panel('brein-analytics-map', __('Live Visitor Map (Last 5 Minutes)', 'brein-plugin'), 'brein-analytics-map-body', 'half', array($this->map_widget, 'render_map_widget')); ?>
                 <?php $this->render_panel('brein-analytics-weekly-visitors', __('Weekly Visitors', 'brein-plugin'), 'brein-analytics-weekly-visitors-body', 'half', array($this->weekly_widget, 'render_widget')); ?>
                 <?php $this->render_panel('brein-analytics-tracking-module', __('Tracking Module', 'brein-plugin'), 'brein-analytics-tracking-module-body', 'half', array($this->tracking_widget, 'render_widget')); ?>
+                <?php $this->render_panel('brein-analytics-funnel-module', __('Funnels', 'brein-plugin'), 'brein-analytics-funnel-module-body', 'half', array($this->funnel_widget, 'render_widget')); ?>
                 <?php $this->render_panel('brein-analytics-live-visitors', __('Live Visitors', 'brein-plugin'), 'brein-analytics-live-visitors-body', 'full', array($this->visitor_widget, 'render_widget')); ?>
             </div>
         </div>

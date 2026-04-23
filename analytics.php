@@ -20,6 +20,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/admin/class-brein-visitor-wid
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-brein-weekly-visitors-widget.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-brein-analytics-page.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-brein-tracking-widget.php';
+require_once plugin_dir_path(__FILE__) . 'includes/admin/class-brein-funnel-widget.php';
 
 register_activation_hook(__FILE__, array('Brein_Visitor_Tracker', 'activate'));
 
@@ -41,8 +42,9 @@ function run_brein_analytics_plugin()
     $visitor_widget = new Brein_Visitor_Widget();
     $weekly_widget = new Brein_Weekly_Visitors_Widget();
     $tracking_widget = new Brein_Tracking_Widget($tracking_capability);
+    $funnel_widget = new Brein_Funnel_Widget($tracking_capability);
 
-    new Brein_Analytics_Page($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget);
+    new Brein_Analytics_Page($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget, $funnel_widget);
 }
 
 run_brein_analytics_plugin();

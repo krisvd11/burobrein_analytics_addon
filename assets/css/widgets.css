@@ -175,7 +175,7 @@
   border-radius: 999px;
 }
 
-.brein-weekly-source-fill-tracking {
+.brein-weekly-source-fill-new {
   height: 100%;
   background: #56e39f;
   border-radius: 999px;
@@ -258,6 +258,501 @@
 .brein-tracking-fields {
   display: grid;
   gap: 10px;
+}
+
+.brein-funnel-widget,
+.brein-funnel-report,
+.brein-funnel-builder {
+  padding: 16px;
+}
+
+.brein-funnel-widget__list,
+.brein-funnel-steps,
+.brein-funnel-steps-report {
+  display: grid;
+  gap: 12px;
+}
+
+.brein-funnel-widget__item,
+.brein-funnel-step,
+.brein-funnel-step-report {
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.brein-funnel-widget__item {
+  display: block;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brein-funnel-widget__toolbar {
+  padding: 16px 16px 0;
+}
+
+.brein-funnel-widget__select {
+  min-width: 240px;
+  max-width: 100%;
+}
+
+.brein-funnel-widget__viewer {
+  padding: 12px 16px 16px;
+}
+
+.brein-funnel-widget__panel .brein-funnel-flow-card {
+  margin-bottom: 0;
+}
+
+.brein-funnel-widget__panel.is-live-updating .brein-funnel-flow-card {
+  animation: breinFunnelPanelPulse 900ms ease;
+}
+
+.brein-funnel-widget__panel.is-live-updating .brein-funnel-flow-card path,
+.brein-funnel-widget__panel.is-live-updating .brein-funnel-flow-card rect {
+  animation: breinFunnelGraphSettle 900ms ease;
+  transform-origin: center center;
+}
+
+.brein-funnel-widget__head,
+.brein-funnel-widget__meta,
+.brein-funnel-widget__step,
+.brein-funnel-step-report__top,
+.brein-funnel-step__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brein-funnel-widget__meta {
+  margin: 8px 0 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #52656b;
+}
+
+.brein-funnel-widget__steps {
+  display: grid;
+  gap: 8px;
+}
+
+.brein-funnel-widget__step {
+  gap: 10px;
+}
+
+.brein-funnel-widget__step-label {
+  width: 110px;
+  font-size: 12px;
+  color: #1d2327;
+}
+
+.brein-funnel-widget__step-bar,
+.brein-funnel-step-report__bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(15, 46, 51, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.brein-funnel-widget__step-bar span,
+.brein-funnel-step-report__bar span {
+  display: block;
+  height: 100%;
+  background: #56e39f;
+  border-radius: 999px;
+}
+
+.brein-funnel-step {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
+  padding: 16px;
+}
+
+.brein-funnel-step__drag {
+  cursor: move;
+  color: #7a8b91;
+  user-select: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.brein-funnel-step__body {
+  min-width: 0;
+}
+
+.brein-funnel-step__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.brein-funnel-step__grid p {
+  margin: 0;
+}
+
+.brein-funnel-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.brein-funnel-summary__card {
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+}
+
+.brein-funnel-summary__card span {
+  display: block;
+  font-size: 12px;
+  color: #52656b;
+  margin-bottom: 6px;
+}
+
+.brein-funnel-summary__card strong,
+.brein-funnel-step-report__stats strong {
+  font-size: 20px;
+  color: #0f2e33;
+}
+
+.brein-funnel-step-report {
+  padding: 14px;
+}
+
+.brein-funnel-flow-card {
+  margin-bottom: 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+  color: #0f2e33;
+  border: 1px solid #e6e6e6;
+}
+
+.brein-funnel-flow-card__canvas {
+  position: relative;
+  min-height: 250px;
+}
+
+.brein-funnel-flow-card__canvas svg {
+  display: block;
+  width: 100%;
+  height: 250px;
+}
+
+.brein-funnel-flow-card__header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: grid;
+  z-index: 2;
+}
+
+.brein-funnel-flow-card__header-step {
+  min-width: 0;
+  padding: 14px 16px 0;
+  border-left: 1px solid #ececec;
+  position: relative;
+}
+
+.brein-funnel-flow-card__header-step:first-child {
+  border-left: 0;
+}
+
+.brein-funnel-flow-card__header-step span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #6a7a80;
+}
+
+.brein-funnel-flow-card__header-step strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f2e33;
+}
+
+.brein-funnel-flow-card__live-indicator {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(10px);
+  overflow: visible;
+}
+
+.brein-funnel-flow-card__live-indicator svg {
+  width: 14px;
+  height: 14px;
+  overflow: visible;
+}
+
+.brein-funnel-flow-card__live-indicator-icon,
+.brein-funnel-flow-card__live-indicator-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brein-funnel-flow-card__live-indicator-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.brein-funnel-flow-card__live-indicator-icon--eyes svg {
+  width: 42px;
+  height: 21px;
+  overflow: visible;
+}
+
+.brein-funnel-flow-card__live-indicator-icon .cursor,
+.brein-funnel-flow-card__live-indicator-icon .ring,
+.brein-funnel-flow-card__live-indicator-icon .spark {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.brein-funnel-flow-card__live-indicator-icon .cursor {
+  transform-origin: 50% 50%;
+}
+
+.brein-funnel-flow-card__live-indicator-emoji {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live {
+  animation: breinLiveIndicator 2.6s ease forwards;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live .cursor {
+  animation: breinCursorClickMove 2s ease-in-out 180ms forwards;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live .pupil {
+  animation: breinEyesLook 2s ease-in-out 180ms forwards;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live .ring {
+  animation: breinCursorRingPulse 2s ease-out 180ms forwards;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live .ring.second {
+  animation: breinCursorRingPulse2 2s ease-out 180ms forwards;
+}
+
+.brein-funnel-flow-card__live-indicator.is-live .spark {
+  animation: breinCursorSparkFlash 2s ease-out 180ms forwards;
+}
+
+.brein-funnel-flow-card__dropoff {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #687983;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  z-index: 2;
+  white-space: nowrap;
+  border: 1px solid rgba(15, 46, 51, 0.08);
+}
+
+.brein-funnel-flow-card__dropoff span {
+  opacity: 0.85;
+}
+
+@keyframes breinFunnelPanelPulse {
+  0% {
+    transform: scale(0.992);
+    opacity: 0.82;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes breinFunnelGraphSettle {
+  0% {
+    opacity: 0.7;
+    transform: scaleY(0.92);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes breinLiveIndicator {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+}
+
+@keyframes breinCursorClickMove {
+  0% { transform: translate(0, 0) scale(1); }
+  20% { transform: translate(6px, 8px) scale(1); }
+  30% { transform: translate(8px, 10px) scale(0.92); }
+  42% { transform: translate(6px, 8px) scale(1); }
+  100% { transform: translate(6px, 8px) scale(1); }
+}
+
+@keyframes breinCursorRingPulse {
+  0%, 30% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  38% {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  70% {
+    opacity: 0.3;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+@keyframes breinCursorRingPulse2 {
+  0%, 40% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  48% {
+    opacity: 0.6;
+    transform: scale(0.7);
+  }
+  78% {
+    opacity: 0.2;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes breinCursorSparkFlash {
+  0%, 32% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  55% {
+    opacity: 0.4;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+@keyframes breinEyesLook {
+  0%   { transform: translate(0px, 0px); }
+  25%  { transform: translate(-8px, 0px); }
+  50%  { transform: translate(10px, 0px); }
+  75%  { transform: translate(0px, 0px); }
+  100% { transform: translate(0px, 0px); }
+}
+
+.brein-funnel-step-report__stats {
+  text-align: right;
+}
+
+.brein-funnel-step-report__stats span {
+  display: block;
+  font-size: 12px;
+  color: #52656b;
+}
+
+@media (max-width: 782px) {
+  .brein-funnel-step__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .brein-funnel-widget__step {
+    align-items: flex-start;
+  }
+
+  .brein-funnel-widget__step-label {
+    width: 90px;
+  }
+
+  .brein-funnel-widget__toolbar,
+  .brein-funnel-widget__viewer {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .brein-funnel-widget__select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .brein-funnel-flow-card__canvas {
+    min-height: 220px;
+  }
+
+  .brein-funnel-flow-card__canvas svg {
+    height: 220px;
+  }
+
+  .brein-funnel-flow-card__header-step {
+    padding: 12px 10px 0;
+  }
+
+  .brein-funnel-flow-card__header-step strong {
+    font-size: 13px;
+  }
+
+  .brein-funnel-flow-card__dropoff {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
 }
 
 .brein-tracking-field-row {
