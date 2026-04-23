@@ -13,10 +13,12 @@ class Brein_Visitor_Tracker
 {
     const TABLE = 'brein_visitors';
     const EVENTS_TABLE = 'brein_recording_events';
+    const CONSENTS_TABLE = 'brein_cookie_consents';
     const COOKIE = 'brein_visitor_id';
+    const CONSENT_COOKIE = 'brein_cookie_consent_id';
     const SESSION_COOKIE = 'brein_visitor_session';
     const RECORDING_SESSION_COOKIE = 'brein_recording_session_id';
-    const DB_VERSION = '1.6.0';
+    const DB_VERSION = '1.8.0';
     const SESSION_TTL = 1800;
     const DEFAULT_RETENTION_DAYS = 180;
 
@@ -28,6 +30,8 @@ class Brein_Visitor_Tracker
         add_action('wp_enqueue_scripts', array($this, 'enqueue_click_tracking_assets'));
         add_action('wp_ajax_nopriv_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
+        add_action('wp_ajax_nopriv_brein_track_cookie_consent', array($this, 'ajax_track_cookie_consent'));
+        add_action('wp_ajax_brein_track_cookie_consent', array($this, 'ajax_track_cookie_consent'));
         add_action('wp_ajax_nopriv_brein_track_recording_event', array($this, 'ajax_track_recording_event'));
         add_action('wp_ajax_brein_track_recording_event', array($this, 'ajax_track_recording_event'));
     }
@@ -39,6 +43,7 @@ class Brein_Visitor_Tracker
         $charset_collate = $wpdb->get_charset_collate();
         $table_name = $wpdb->prefix . self::TABLE;
         $events_table = $wpdb->prefix . self::EVENTS_TABLE;
+        $consents_table = $wpdb->prefix . self::CONSENTS_TABLE;
 
         $visitor_sql = "CREATE TABLE {$table_name} (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -80,9 +85,26 @@ class Brein_Visitor_Tracker
             KEY created_at (created_at)
         ) {$charset_collate};";
 
+        $consents_sql = "CREATE TABLE {$consents_table} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            consent_id VARCHAR(64) NOT NULL,
+            choice VARCHAR(32) NOT NULL,
+            preferences LONGTEXT NOT NULL,
+            path TEXT NOT NULL,
+            page_title TEXT NOT NULL,
+            referer TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY consent_id (consent_id),
+            KEY choice (choice),
+            KEY updated_at (updated_at)
+        ) {$charset_collate};";
+
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($visitor_sql);
         dbDelta($events_sql);
+        dbDelta($consents_sql);
         update_option('brein_visitors_db_version', self::DB_VERSION);
     }
 
@@ -290,6 +312,32 @@ class Brein_Visitor_Tracker
         wp_send_json_success();
     }
 
+    public function ajax_track_cookie_consent()
+    {
+        check_ajax_referer('brein_track_consent_visitor', 'nonce');
+
+        if ($this->is_admin_request() || $this->is_recording_preview_request()) {
+            wp_send_json_success(array('ignored' => true));
+        }
+
+        $action_name = isset($_POST['consent_action']) ? sanitize_key(wp_unslash($_POST['consent_action'])) : '';
+        $preferences_raw = isset($_POST['preferences']) ? wp_unslash($_POST['preferences']) : '';
+        $preferences = $this->decode_cookie_preferences($preferences_raw);
+        $choice = $this->resolve_cookie_consent_choice($action_name, $preferences);
+
+        $this->store_cookie_consent(
+            $choice,
+            $preferences,
+            array(
+                'path' => isset($_POST['path']) ? wp_unslash($_POST['path']) : '',
+                'page_title' => isset($_POST['page_title']) ? wp_unslash($_POST['page_title']) : '',
+                'referer' => isset($_POST['referrer']) ? wp_unslash($_POST['referrer']) : '',
+            )
+        );
+
+        wp_send_json_success(array('choice' => $choice));
+    }
+
     public function ajax_track_recording_event()
     {
         check_ajax_referer('brein_track_recording_event', 'nonce');
@@ -457,6 +505,7 @@ class Brein_Visitor_Tracker
         $retention_days = $this->get_tracking_retention_days();
         $visitors_table = $wpdb->prefix . self::TABLE;
         $events_table = $wpdb->prefix . self::EVENTS_TABLE;
+        $consents_table = $wpdb->prefix . self::CONSENTS_TABLE;
 
         $wpdb->query(
             $wpdb->prepare(
@@ -471,6 +520,119 @@ class Brein_Visitor_Tracker
                 $retention_days
             )
         );
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$consents_table} WHERE updated_at < (NOW() - INTERVAL %d DAY)",
+                $retention_days
+            )
+        );
+    }
+
+    private function store_cookie_consent($choice, $preferences, $context = array())
+    {
+        global $wpdb;
+
+        $table = $wpdb->prefix . self::CONSENTS_TABLE;
+        $consent_id = isset($_COOKIE[self::CONSENT_COOKIE]) ? sanitize_text_field(wp_unslash($_COOKIE[self::CONSENT_COOKIE])) : '';
+        if ($consent_id === '') {
+            $consent_id = $this->generate_consent_id();
+            $this->set_consent_cookie($consent_id);
+        }
+
+        $now = current_time('mysql');
+        $data = array(
+            'choice' => sanitize_key($choice),
+            'preferences' => wp_json_encode(array(
+                'necessary' => true,
+                'analytics' => !empty($preferences['analytics']),
+                'recordings' => !empty($preferences['recordings']),
+            )),
+            'path' => isset($context['path']) ? $this->sanitize_text_field_deep($context['path']) : '',
+            'page_title' => isset($context['page_title']) ? $this->sanitize_text_field_deep($context['page_title']) : '',
+            'referer' => isset($context['referer']) ? $this->sanitize_referer_value($context['referer']) : 'direct',
+            'updated_at' => $now,
+        );
+
+        $existing = $wpdb->get_var(
+            $wpdb->prepare("SELECT id FROM {$table} WHERE consent_id = %s", $consent_id)
+        );
+
+        if ($existing) {
+            $wpdb->update(
+                $table,
+                $data,
+                array('consent_id' => $consent_id),
+                array('%s', '%s', '%s', '%s', '%s', '%s'),
+                array('%s')
+            );
+            return;
+        }
+
+        $data['consent_id'] = $consent_id;
+        $data['created_at'] = $now;
+
+        $wpdb->insert(
+            $table,
+            $data,
+            array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+        );
+    }
+
+    private function resolve_cookie_consent_choice($action_name, $preferences)
+    {
+        if ($action_name === 'accept') {
+            return 'accept_all';
+        }
+
+        if (empty($preferences['analytics']) && empty($preferences['recordings'])) {
+            return 'reject';
+        }
+
+        return 'personalized';
+    }
+
+    private function decode_cookie_preferences($value)
+    {
+        $defaults = array(
+            'necessary' => true,
+            'analytics' => false,
+            'recordings' => false,
+        );
+
+        if (!is_string($value) || $value === '') {
+            return $defaults;
+        }
+
+        if ($value === 'accept') {
+            $defaults['analytics'] = true;
+            $defaults['recordings'] = true;
+            return $defaults;
+        }
+
+        if ($value === 'decline') {
+            return $defaults;
+        }
+
+        $decoded = json_decode(urldecode($value), true);
+        if (!is_array($decoded)) {
+            return $defaults;
+        }
+
+        $defaults['analytics'] = !empty($decoded['analytics']);
+        $defaults['recordings'] = !empty($decoded['recordings']);
+
+        return $defaults;
+    }
+
+    private function sanitize_referer_value($value)
+    {
+        $value = is_string($value) ? trim($value) : '';
+        if ($value === '' || strtolower($value) === 'direct') {
+            return 'direct';
+        }
+
+        return esc_url_raw($value);
     }
 
     private function set_visitor_cookie($visitor_id)
@@ -483,6 +645,27 @@ class Brein_Visitor_Tracker
             setcookie(self::COOKIE, $visitor_id, $expire, COOKIEPATH, COOKIE_DOMAIN, $secure, $httponly);
         }
         $_COOKIE[self::COOKIE] = $visitor_id;
+    }
+
+    private function set_consent_cookie($consent_id)
+    {
+        $expire = time() + (365 * DAY_IN_SECONDS);
+        $secure = is_ssl();
+        $httponly = true;
+
+        if (!headers_sent()) {
+            setcookie(self::CONSENT_COOKIE, $consent_id, $expire, COOKIEPATH, COOKIE_DOMAIN, $secure, $httponly);
+        }
+        $_COOKIE[self::CONSENT_COOKIE] = $consent_id;
+    }
+
+    private function generate_consent_id()
+    {
+        if (function_exists('wp_generate_uuid4')) {
+            return wp_generate_uuid4();
+        }
+
+        return md5(uniqid('brein_consent_', true));
     }
 
     private function get_session_state()

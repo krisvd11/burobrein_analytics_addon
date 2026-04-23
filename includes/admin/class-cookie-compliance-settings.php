@@ -95,7 +95,7 @@ class Brein_Cookie_Compliance_Settings
 
         add_settings_field(
             'brein_cookie_compliance_content',
-            __('Inhoud', 'brein-plugin'),
+            __('Toestemming', 'brein-plugin'),
             array($this, 'render_editor_field'),
             'brein-cookie-compliance',
             'brein_cookie_compliance_section',
@@ -121,12 +121,12 @@ class Brein_Cookie_Compliance_Settings
         );
 
         add_settings_field(
-            'brein_cookie_compliance_title',
-            __('Titel', 'brein-plugin'),
-            array($this, 'render_text_field'),
+            'brein_cookie_compliance_title_image_url',
+            __('Titel afbeelding URL', 'brein-plugin'),
+            array($this, 'render_image_uploader_field'),
             'brein-cookie-compliance',
             'brein_cookie_compliance_section',
-            array('key' => 'title')
+            array('key' => 'title_image_url')
         );
 
         add_settings_field(
@@ -282,6 +282,16 @@ class Brein_Cookie_Compliance_Settings
         );
 
         add_settings_field(
+            'brein_cookie_compliance_check_bg',
+            __('Tab achtergrond', 'brein-plugin'),
+            array($this, 'render_color_field'),
+            'brein-cookie-compliance',
+            'brein_cookie_compliance_section',
+            array('key' => 'check_bg')
+        );
+
+
+        add_settings_field(
             'brein_cookie_compliance_tab_text_color',
             __('Tab tekstkleur', 'brein-plugin'),
             array($this, 'render_color_field'),
@@ -399,6 +409,7 @@ class Brein_Cookie_Compliance_Settings
         $output['privacy_policy_url'] = isset($input['privacy_policy_url']) ? esc_url_raw($input['privacy_policy_url']) : '';
         $output['data_retention_days'] = isset($input['data_retention_days']) ? max(1, (int) $input['data_retention_days']) : 180;
         $output['title'] = isset($input['title']) ? sanitize_text_field($input['title']) : '';
+        $output['title_image_url'] = isset($input['title_image_url']) ? esc_url_raw($input['title_image_url']) : '';
         $output['accept_label'] = isset($input['accept_label']) ? sanitize_text_field($input['accept_label']) : '';
         $output['decline_label'] = isset($input['decline_label']) ? sanitize_text_field($input['decline_label']) : '';
         $output['show_decline'] = !empty($input['show_decline']) ? 1 : 0;
@@ -426,6 +437,8 @@ class Brein_Cookie_Compliance_Settings
         $output['heading_color'] = isset($input['heading_color']) ? sanitize_hex_color($input['heading_color']) : '';
         $output['body_text_color'] = isset($input['body_text_color']) ? sanitize_hex_color($input['body_text_color']) : '';
         $output['tab_bg'] = isset($input['tab_bg']) ? sanitize_hex_color($input['tab_bg']) : '';
+        $output['check_bg'] = isset($input['check_bg']) ? sanitize_hex_color($input['check_bg']) : '';
+
         $output['tab_text_color'] = isset($input['tab_text_color']) ? sanitize_hex_color($input['tab_text_color']) : '';
         $output['tab_active_text_color'] = isset($input['tab_active_text_color']) ? sanitize_hex_color($input['tab_active_text_color']) : '';
         $output['tab_active_accent_color'] = isset($input['tab_active_accent_color']) ? sanitize_hex_color($input['tab_active_accent_color']) : '';
@@ -466,6 +479,7 @@ class Brein_Cookie_Compliance_Settings
             value="<?php echo esc_attr($value); ?>" />
         <?php
     }
+    
 
     public function render_url_field($args)
     {
@@ -479,6 +493,33 @@ class Brein_Cookie_Compliance_Settings
             name="<?php echo esc_attr($this->option_name . '[' . $key . ']'); ?>"
             value="<?php echo esc_attr($value); ?>"
             placeholder="<?php echo esc_attr(get_privacy_policy_url()); ?>" />
+        <?php
+    }
+
+    public function render_image_uploader_field($args)
+    {
+        $options = $this->get_options();
+        $key = isset($args['key']) ? $args['key'] : '';
+        $value = isset($options[$key]) ? (string) $options[$key] : '';
+        ?>
+        <div class="brein-image-uploader" data-target-key="<?php echo esc_attr($key); ?>">
+            <input
+                type="hidden"
+                class="brein-image-uploader__input"
+                name="<?php echo esc_attr($this->option_name . '[' . $key . ']'); ?>"
+                value="<?php echo esc_attr($value); ?>" />
+            <button type="button" class="button brein-image-uploader__select">
+                <?php esc_html_e('Selecteer afbeelding', 'brein-plugin'); ?>
+            </button>
+            <button type="button" class="button-link-delete brein-image-uploader__remove" <?php echo empty($value) ? 'style="display:none;"' : ''; ?>>
+                <?php esc_html_e('Verwijderen', 'brein-plugin'); ?>
+            </button>
+            <div class="brein-image-uploader__preview" style="margin-top:10px;">
+                <?php if (!empty($value)): ?>
+                    <img src="<?php echo esc_url($value); ?>" alt="" style="max-height:60px;width:auto;" />
+                <?php endif; ?>
+            </div>
+        </div>
         <?php
     }
 
@@ -561,6 +602,7 @@ class Brein_Cookie_Compliance_Settings
             'privacy_policy_url' => get_privacy_policy_url(),
             'data_retention_days' => 180,
             'title' => __('Cookies', 'brein-plugin'),
+            'title_image_url' => '',
             'accept_label' => __('Accepteren', 'brein-plugin'),
             'decline_label' => __('Weigeren', 'brein-plugin'),
             'show_decline' => 1,
@@ -577,6 +619,7 @@ class Brein_Cookie_Compliance_Settings
             'heading_color' => '#1d2327',
             'body_text_color' => '#1d2327',
             'tab_bg' => '#ffffff',
+            'check_bg' => '#56E3A0',
             'tab_text_color' => '#1d2327',
             'tab_active_text_color' => '#1d4dff',
             'tab_active_accent_color' => '#1d4dff',
@@ -639,8 +682,8 @@ class Brein_Cookie_Compliance_Settings
                         <tbody>
                             
                             <?php $this->render_settings_row('Popup inschakelen', array($this, 'render_checkbox_field'), array('key' => 'enabled')); ?>
-                            <?php $this->render_settings_row('Titel', array($this, 'render_text_field'), array('key' => 'title')); ?>
-                            <?php $this->render_settings_row('Inhoud', array($this, 'render_editor_field'), array('key' => 'content')); ?>
+                            <?php $this->render_settings_row('Titel afbeelding', array($this, 'render_image_uploader_field'), array('key' => 'title_image_url')); ?>
+                            <?php $this->render_settings_row('Toestemming inhoud', array($this, 'render_editor_field'), array('key' => 'content')); ?>
                             <?php $this->render_settings_row('Privacybeleid URL', array($this, 'render_url_field'), array('key' => 'privacy_policy_url')); ?>
                         </tbody>
                     </table>
@@ -690,6 +733,7 @@ class Brein_Cookie_Compliance_Settings
                             <?php $this->render_settings_row('Heading kleur', array($this, 'render_color_field'), array('key' => 'heading_color')); ?>
                             <?php $this->render_settings_row('Tekstkleur inhoud', array($this, 'render_color_field'), array('key' => 'body_text_color')); ?>
                             <?php $this->render_settings_row('Tab achtergrond', array($this, 'render_color_field'), array('key' => 'tab_bg')); ?>
+                            <?php $this->render_settings_row('Check achtergrond', array($this, 'render_color_field'), array('key' => 'check_bg')); ?>
                             <?php $this->render_settings_row('Tab tekstkleur', array($this, 'render_color_field'), array('key' => 'tab_text_color')); ?>
                             <?php $this->render_settings_row('Actieve tab tekstkleur', array($this, 'render_color_field'), array('key' => 'tab_active_text_color')); ?>
                             <?php $this->render_settings_row('Actieve tab accentkleur', array($this, 'render_color_field'), array('key' => 'tab_active_accent_color')); ?>
@@ -778,6 +822,7 @@ class Brein_Cookie_Compliance_Settings
             return;
         }
 
+        wp_enqueue_media();
         wp_register_script('brein-cookie-tabs', false, array(), '1.0.0', true);
         wp_enqueue_script('brein-cookie-tabs');
         wp_add_inline_script(
@@ -806,6 +851,51 @@ class Brein_Cookie_Compliance_Settings
                         heading.classList.add('active');
                         tables[index].style.display = 'table';
                     });
+                });
+
+                const imageUploaders = document.querySelectorAll('.brein-image-uploader');
+                imageUploaders.forEach((uploader) => {
+                    const input = uploader.querySelector('.brein-image-uploader__input');
+                    const selectButton = uploader.querySelector('.brein-image-uploader__select');
+                    const removeButton = uploader.querySelector('.brein-image-uploader__remove');
+                    const preview = uploader.querySelector('.brein-image-uploader__preview');
+                    if (!input || !selectButton || !preview) {
+                        return;
+                    }
+
+                    let frame;
+                    selectButton.addEventListener('click', function () {
+                        if (frame) {
+                            frame.open();
+                            return;
+                        }
+                        frame = wp.media({
+                            title: 'Selecteer titel afbeelding',
+                            button: { text: 'Gebruik afbeelding' },
+                            library: { type: 'image' },
+                            multiple: false
+                        });
+                        frame.on('select', function () {
+                            const attachment = frame.state().get('selection').first().toJSON();
+                            if (!attachment || !attachment.url) {
+                                return;
+                            }
+                            input.value = attachment.url;
+                            preview.innerHTML = '<img src=\"' + attachment.url + '\" alt=\"\" style=\"max-height:60px;width:auto;\" />';
+                            if (removeButton) {
+                                removeButton.style.display = '';
+                            }
+                        });
+                        frame.open();
+                    });
+
+                    if (removeButton) {
+                        removeButton.addEventListener('click', function () {
+                            input.value = '';
+                            preview.innerHTML = '';
+                            removeButton.style.display = 'none';
+                        });
+                    }
                 });
             });"
         );

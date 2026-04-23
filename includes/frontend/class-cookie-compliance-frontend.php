@@ -59,6 +59,7 @@ class Brein_Cookie_Compliance_Frontend
         $privacy_policy_url = !empty($options['privacy_policy_url']) ? $options['privacy_policy_url'] : get_privacy_policy_url();
 
         $title = !empty($options['title']) ? $options['title'] : __('Cookies', 'brein-plugin');
+        $title_image_url = !empty($options['title_image_url']) ? $options['title_image_url'] : '';
         $accept_label = !empty($options['accept_label']) ? $options['accept_label'] : __('Accepteren', 'brein-plugin');
         $decline_label = !empty($options['decline_label']) ? $options['decline_label'] : __('Weigeren', 'brein-plugin');
         $show_decline = !empty($options['show_decline']);
@@ -84,6 +85,7 @@ class Brein_Cookie_Compliance_Frontend
         $heading_color = !empty($options['heading_color']) ? $options['heading_color'] : '#1d2327';
         $body_text_color = !empty($options['body_text_color']) ? $options['body_text_color'] : '#1d2327';
         $tab_bg = !empty($options['tab_bg']) ? $options['tab_bg'] : '#ffffff';
+        $check_bg = !empty($options['check_bg']) ? $options['check_bg'] : '#ffffff';
         $tab_text_color = !empty($options['tab_text_color']) ? $options['tab_text_color'] : '#1d2327';
         $tab_active_text_color = !empty($options['tab_active_text_color']) ? $options['tab_active_text_color'] : '#1d4dff';
         $tab_active_accent_color = !empty($options['tab_active_accent_color']) ? $options['tab_active_accent_color'] : '#1d4dff';
@@ -109,7 +111,7 @@ class Brein_Cookie_Compliance_Frontend
 
         ?>
         <style>
-            .brein-cookie-popup p {
+            .brein-cookie-popup p, li {
                 font-size: 14px !important;
             }
             .brein-cookie-popup {
@@ -152,7 +154,14 @@ class Brein_Cookie_Compliance_Frontend
                 font-size: <?php echo esc_html($title_font_size); ?>px;
                 line-height: 1.2;
                 color: <?php echo esc_html($heading_color); ?>;
-                padding: 20px 0 0 0 !important;
+                padding: 10px !important;
+            }
+            .brein-cookie-popup__title-image {
+                display: block;
+                max-width: 100%;
+                width: auto;
+                max-height: 46px;
+                height: auto;
             }
             .brein-cookie-popup__body {
                 padding: 12px;
@@ -252,29 +261,70 @@ class Brein_Cookie_Compliance_Frontend
                 color: #55606d;
             }
             .brein-cookie-popup__category {
-                display: flex;
-                align-items: flex-start;
-                justify-content: space-between;
-                gap: 16px;
-                padding: 12px 0;
-                border-top: 1px solid #eef1f4;
+                border: 1px solid #e2e7ec;
+                background: #ffffff;
+                margin-top: 12px;
+                overflow: hidden;
             }
             .brein-cookie-popup__category:first-of-type {
-                border-top: 0;
+                margin-top: 0;
+            }
+            .brein-cookie-popup__category-toggle {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 14px 16px;
+                border: 0;
+                background: transparent;
+                text-align: left;
+                cursor: pointer;
+            }
+            .brein-cookie-popup__category-main {
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+            .brein-cookie-popup__category-right {
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                flex: 0 0 auto;
             }
             .brein-cookie-popup__category-label {
                 display: block;
                 font-size: 14px;
                 font-weight: 600;
                 color: <?php echo esc_html($heading_color); ?>;
-                margin-bottom: 4px;
+                margin-bottom: 0;
+            }
+            .brein-cookie-popup__category-chevron {
+                width: 10px;
+                height: 10px;
+                border-right: 1.5px solid #5f6b77;
+                border-bottom: 1.5px solid #5f6b77;
+                transform: rotate(45deg);
+                transition: transform 0.2s ease;
+                margin-right: 2px;
+            }
+            .brein-cookie-popup__category[data-expanded="true"] .brein-cookie-popup__category-chevron {
+                transform: rotate(-135deg);
+            }
+            .brein-cookie-popup__category-body {
+                display: none;
+                padding: 0 16px 14px;
+            }
+            .brein-cookie-popup__category[data-expanded="true"] .brein-cookie-popup__category-body {
+                display: block;
             }
             .brein-cookie-popup__category-text {
                 margin: 0;
                 font-size: 12px;
                 line-height: 1.5;
                 color: #55606d;
-                max-width: 520px;
+            }
+            .brein-cookie-popup__category[data-expanded="true"] .brein-cookie-popup__category-toggle {
+                padding-bottom: 10px;
             }
             .brein-cookie-popup__switch {
                 position: relative;
@@ -312,15 +362,15 @@ class Brein_Cookie_Compliance_Frontend
                 transition: transform 0.2s ease;
             }
             .brein-cookie-popup__switch input:checked + .brein-cookie-popup__slider {
-                background: #56e39f;
+                background: <?php echo esc_html($check_bg); ?>;                ;
             }
             .brein-cookie-popup__switch input:checked + .brein-cookie-popup__slider::before {
                 transform: translateX(20px);
             }
             .brein-cookie-popup__switch input:disabled + .brein-cookie-popup__slider {
-                background: #1d2327;
+                background: <?php echo esc_html($check_bg); ?>;                ;
                 cursor: default;
-                opacity: 0.92;
+                opacity: 0.30;
             }
             .brein-cookie-popup__footer {
                 padding: 0 20px 20px;
@@ -375,7 +425,14 @@ class Brein_Cookie_Compliance_Frontend
             data-always-show="<?php echo $always_show ? '1' : '0'; ?>">
             <div class="brein-cookie-popup__dialog" role="dialog" aria-modal="true" aria-labelledby="brein-cookie-popup-title">
                 <div class="brein-cookie-popup__header">
-                    <h2 class="brein-cookie-popup__title" id="brein-cookie-popup-title"><?php echo esc_html($title); ?></h2>
+                    <h2 class="brein-cookie-popup__title" id="brein-cookie-popup-title">
+                        <?php if (!empty($title_image_url)): ?>
+                            <img class="brein-cookie-popup__title-image" src="<?php echo esc_url($title_image_url); ?>" alt="" aria-hidden="true" />
+                            <span class="screen-reader-text"><?php echo esc_html($title); ?></span>
+                        <?php else: ?>
+                            <?php echo esc_html($title); ?>
+                        <?php endif; ?>
+                    </h2>
                 </div>
                 <div class="brein-cookie-popup__tabs" role="tablist" aria-label="<?php esc_attr_e('Cookie tabs', 'brein-plugin'); ?>">
                     <button type="button" class="brein-cookie-popup__tab is-active" data-cookie-tab="summary" role="tab" aria-selected="true"><?php esc_html_e('Toestemming', 'brein-plugin'); ?></button>
@@ -405,20 +462,26 @@ class Brein_Cookie_Compliance_Frontend
                             <h3 class="brein-cookie-popup__preferences-title"><?php esc_html_e('Voorkeuren', 'brein-plugin'); ?></h3>
                             <p class="brein-cookie-popup__preferences-copy"><?php esc_html_e('Kies per categorie welke cookies je wilt toestaan.', 'brein-plugin'); ?></p>
                             <?php foreach ($this->consent_categories as $key => $category): ?>
-                                <div class="brein-cookie-popup__category">
-                                    <div>
-                                        <span class="brein-cookie-popup__category-label"><?php echo esc_html($category['label']); ?></span>
+                                <div class="brein-cookie-popup__category" data-cookie-category-row="<?php echo esc_attr($key); ?>" data-expanded="<?php echo !empty($category['required']) ? 'true' : 'false'; ?>">
+                                    <button type="button" class="brein-cookie-popup__category-toggle" data-cookie-category-toggle="<?php echo esc_attr($key); ?>" aria-expanded="<?php echo !empty($category['required']) ? 'true' : 'false'; ?>">
+                                        <div class="brein-cookie-popup__category-main">
+                                            <span class="brein-cookie-popup__category-label"><?php echo esc_html($category['label']); ?></span>
+                                        </div>
+                                        <div class="brein-cookie-popup__category-right">
+                                            <label class="brein-cookie-popup__switch">
+                                                <input
+                                                    type="checkbox"
+                                                    data-cookie-category="<?php echo esc_attr($key); ?>"
+                                                    <?php checked(!empty($category['required'])); ?>
+                                                    <?php disabled(!empty($category['required'])); ?>>
+                                                <span class="brein-cookie-popup__slider" aria-hidden="true"></span>
+                                            </label>
+                                            <span class="brein-cookie-popup__category-chevron" aria-hidden="true"></span>
+                                        </div>
+                                    </button>
+                                    <div class="brein-cookie-popup__category-body">
                                         <p class="brein-cookie-popup__category-text"><?php echo esc_html($category['description']); ?></p>
-                                        
                                     </div>
-                                    <label class="brein-cookie-popup__switch">
-                                        <input
-                                            type="checkbox"
-                                            data-cookie-category="<?php echo esc_attr($key); ?>"
-                                            <?php checked(!empty($category['required'])); ?>
-                                            <?php disabled(!empty($category['required'])); ?>>
-                                        <span class="brein-cookie-popup__slider" aria-hidden="true"></span>
-                                    </label>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -426,11 +489,9 @@ class Brein_Cookie_Compliance_Frontend
                     <div class="brein-cookie-popup__panel" data-cookie-panel="about" role="tabpanel">
                         <div class="brein-cookie-popup__body">
                             <p><?php esc_html_e('Deze voorkeuren geven je controle over welke niet-noodzakelijke cookies we mogen plaatsen.', 'brein-plugin'); ?></p>
-                            <ul>
-                                <li><strong><?php esc_html_e('Noodzakelijk:', 'brein-plugin'); ?></strong> <?php esc_html_e('vereist om je cookiekeuze te bewaren en basisfunctionaliteit te laten werken.', 'brein-plugin'); ?></li>
-                                <li><strong><?php esc_html_e('Analytics:', 'brein-plugin'); ?></strong> <?php esc_html_e('helpt ons begrijpen welke pagina’s worden gebruikt en hoe bezoekers de website vinden.', 'brein-plugin'); ?></li>
-                                <li><strong><?php esc_html_e('Recordings:', 'brein-plugin'); ?></strong> <?php esc_html_e('legt interacties zoals klikken en scrollen vast om gebruikservaring te verbeteren.', 'brein-plugin'); ?></li>
-                            </ul>
+                            <p><strong><?php esc_html_e('Noodzakelijk:', 'brein-plugin'); ?></strong> <?php esc_html_e('vereist om je cookiekeuze te bewaren en basisfunctionaliteit te laten werken.', 'brein-plugin'); ?></p>
+                            <p><strong><?php esc_html_e('Analytics:', 'brein-plugin'); ?></strong> <?php esc_html_e('helpt ons begrijpen welke pagina’s worden gebruikt en hoe bezoekers de website vinden.', 'brein-plugin'); ?></p>
+                            <p><strong><?php esc_html_e('Recordings:', 'brein-plugin'); ?></strong> <?php esc_html_e('legt interacties zoals klikken en scrollen vast om gebruikservaring te verbeteren.', 'brein-plugin'); ?></p>
                             <p><?php esc_html_e('Je kunt je keuze op elk moment aanpassen via Cookie-instellingen.', 'brein-plugin'); ?></p>
                         </div>
                     </div>
@@ -448,44 +509,49 @@ class Brein_Cookie_Compliance_Frontend
 
         <script>
             (function () {
-                var popup = document.querySelector('.brein-cookie-popup');
+
+
+
+
+                let popup = document.querySelector('.brein-cookie-popup');
                 if (!popup) {
                     return;
                 }
-                var cookieName = popup.getAttribute('data-cookie-name') || 'brein_cookie_compliance';
-                var ajaxUrl = popup.getAttribute('data-ajax-url') || '';
-                var ajaxNonce = popup.getAttribute('data-ajax-nonce') || '';
-                var expireDays = parseInt(popup.getAttribute('data-expire-days') || '180', 10);
-                var alwaysShow = popup.getAttribute('data-always-show') === '1';
-                var delaySeconds = parseInt(popup.getAttribute('data-delay-seconds') || '0', 10);
-                var analyticsCookies = <?php echo wp_json_encode(array_values($this->analytics_cookies)); ?>;
-                var categoryInputs = popup.querySelectorAll('[data-cookie-category]');
-                var tabButtons = popup.querySelectorAll('[data-cookie-tab]');
-                var tabPanels = popup.querySelectorAll('[data-cookie-panel]');
+                let cookieName = popup.getAttribute('data-cookie-name') || 'brein_cookie_compliance';
+                let ajaxUrl = popup.getAttribute('data-ajax-url') || '';
+                let ajaxNonce = popup.getAttribute('data-ajax-nonce') || '';
+                let expireDays = parseInt(popup.getAttribute('data-expire-days') || '180', 10);
+                let alwaysShow = popup.getAttribute('data-always-show') === '1';
+                let delaySeconds = parseInt(popup.getAttribute('data-delay-seconds') || '0', 10);
+                let analyticsCookies = <?php echo wp_json_encode(array_values($this->analytics_cookies)); ?>;
+                let categoryInputs = popup.querySelectorAll('[data-cookie-category]');
+                let categoryToggles = popup.querySelectorAll('[data-cookie-category-toggle]');
+                let tabButtons = popup.querySelectorAll('[data-cookie-tab]');
+                let tabPanels = popup.querySelectorAll('[data-cookie-panel]');
 
-                var getCookie = function (name) {
-                    var value = '; ' + document.cookie;
-                    var parts = value.split('; ' + name + '=');
+                let getCookie = function (name) {
+                    let value = '; ' + document.cookie;
+                    let parts = value.split('; ' + name + '=');
                     if (parts.length === 2) {
                         return parts.pop().split(';').shift();
                     }
                     return '';
                 };
 
-                var setCookie = function (name, value, days) {
-                    var date = new Date();
+                let setCookie = function (name, value, days) {
+                    let date = new Date();
                     date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                    var expires = 'expires=' + date.toUTCString();
-                    var secure = window.location.protocol === 'https:' ? ';secure' : '';
+                    let expires = 'expires=' + date.toUTCString();
+                    let secure = window.location.protocol === 'https:' ? ';secure' : '';
                   document.cookie = name + '=' + value + ';' + expires + ';path=/;samesite=lax' + secure;
                 };
 
-                var clearCookie = function (name) {
-                    var secure = window.location.protocol === 'https:' ? ';secure' : '';
+                let clearCookie = function (name) {
+                    let secure = window.location.protocol === 'https:' ? ';secure' : '';
                     document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;samesite=lax' + secure;
                 };
 
-                var getDefaultPreferences = function () {
+                let getDefaultPreferences = function () {
                     return {
                         necessary: true,
                         analytics: false,
@@ -493,8 +559,8 @@ class Brein_Cookie_Compliance_Frontend
                     };
                 };
 
-                var normalizePreferences = function (value) {
-                    var defaults = getDefaultPreferences();
+                let normalizePreferences = function (value) {
+                    let defaults = getDefaultPreferences();
                     if (!value) {
                         return defaults;
                     }
@@ -508,7 +574,7 @@ class Brein_Cookie_Compliance_Frontend
                     }
 
                     try {
-                        var parsed = JSON.parse(decodeURIComponent(value));
+                        let parsed = JSON.parse(decodeURIComponent(value));
                         if (parsed && typeof parsed === 'object') {
                             defaults.analytics = !!parsed.analytics;
                             defaults.recordings = !!parsed.recordings;
@@ -518,7 +584,7 @@ class Brein_Cookie_Compliance_Frontend
                     return defaults;
                 };
 
-                var serializePreferences = function (preferences) {
+                let serializePreferences = function (preferences) {
                     return encodeURIComponent(JSON.stringify({
                         necessary: true,
                         analytics: !!preferences.analytics,
@@ -526,10 +592,10 @@ class Brein_Cookie_Compliance_Frontend
                     }));
                 };
 
-                var getSelectedPreferences = function () {
-                    var preferences = getDefaultPreferences();
+                let getSelectedPreferences = function () {
+                    let preferences = getDefaultPreferences();
                     categoryInputs.forEach(function (input) {
-                        var key = input.getAttribute('data-cookie-category');
+                        let key = input.getAttribute('data-cookie-category');
                         if (!key || key === 'necessary') {
                             return;
                         }
@@ -538,17 +604,35 @@ class Brein_Cookie_Compliance_Frontend
                     return preferences;
                 };
 
-                var applyPreferencesToUI = function (preferences) {
+                let setCategoryExpanded = function (key, expanded) {
+                    if (!key) {
+                        return;
+                    }
+                    let row = popup.querySelector('[data-cookie-category-row="' + key + '"]');
+                    let toggle = popup.querySelector('[data-cookie-category-toggle="' + key + '"]');
+                    if (!row || !toggle) {
+                        return;
+                    }
+                    row.setAttribute('data-expanded', expanded ? 'true' : 'false');
+                    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                };
+
+                let applyPreferencesToUI = function (preferences) {
                     categoryInputs.forEach(function (input) {
-                        var key = input.getAttribute('data-cookie-category');
+                        let key = input.getAttribute('data-cookie-category');
                         if (!key) {
                             return;
                         }
                         input.checked = key === 'necessary' ? true : !!preferences[key];
+                        if (key === 'necessary') {
+                            setCategoryExpanded(key, true);
+                        } else if (preferences[key]) {
+                            setCategoryExpanded(key, true);
+                        }
                     });
                 };
 
-                var notifyConsentChange = function (preferences) {
+                let notifyConsentChange = function (preferences) {
                     document.dispatchEvent(new window.CustomEvent('breinCookieConsentChanged', {
                         detail: {
                             value: serializePreferences(preferences),
@@ -557,17 +641,17 @@ class Brein_Cookie_Compliance_Frontend
                     }));
                 };
 
-                var closePopup = function () {
+                let closePopup = function () {
                     popup.classList.remove('is-visible');
                 };
 
-                var openPopup = function () {
+                let openPopup = function () {
                     popup.classList.add('is-visible');
                 };
 
-                var setActiveTab = function (name) {
+                let setActiveTab = function (name) {
                     tabButtons.forEach(function (button) {
-                        var active = button.getAttribute('data-cookie-tab') === name;
+                        let active = button.getAttribute('data-cookie-tab') === name;
                         button.classList.toggle('is-active', active);
                         button.setAttribute('aria-selected', active ? 'true' : 'false');
                     });
@@ -576,7 +660,7 @@ class Brein_Cookie_Compliance_Frontend
                     });
                 };
 
-                var persistPreferences = function (preferences) {
+                let persistPreferences = function (preferences) {
                     setCookie(cookieName, serializePreferences(preferences), expireDays);
                     closePopup();
                     if (!preferences.analytics && !preferences.recordings) {
@@ -585,10 +669,35 @@ class Brein_Cookie_Compliance_Frontend
                     notifyConsentChange(preferences);
                 };
 
+                let trackConsentChoice = function (action, preferences) {
+                    if (!ajaxUrl) {
+                        return;
+                    }
+
+                    try {
+                        let body = new URLSearchParams();
+                        body.append('action', 'brein_track_cookie_consent');
+                        body.append('nonce', ajaxNonce);
+                        body.append('consent_action', action);
+                        body.append('preferences', serializePreferences(preferences));
+                        body.append('path', window.location.pathname + (window.location.search || ''));
+                        body.append('page_title', document.title || '');
+                        body.append('referrer', document.referrer || 'direct');
+                        fetch(ajaxUrl, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                            body: body.toString()
+                        });
+                    } catch (e) {
+                        // Silent fail; consent UI should still work.
+                    }
+                };
+
                 if (!alwaysShow) {
-                  var existing = getCookie(cookieName);
+                  let existing = getCookie(cookieName);
                   if (existing) {
-                    var existingPreferences = normalizePreferences(existing);
+                    let existingPreferences = normalizePreferences(existing);
                     applyPreferencesToUI(existingPreferences);
                     notifyConsentChange(existingPreferences);
                     return;
@@ -609,15 +718,43 @@ class Brein_Cookie_Compliance_Frontend
                     });
                 });
 
+                categoryToggles.forEach(function (toggle) {
+                    toggle.addEventListener('click', function (event) {
+                        if (event.target && event.target.closest('.brein-cookie-popup__switch')) {
+                            return;
+                        }
+                        let key = toggle.getAttribute('data-cookie-category-toggle');
+                        let row = popup.querySelector('[data-cookie-category-row="' + key + '"]');
+                        if (!row) {
+                            return;
+                        }
+                        let expanded = row.getAttribute('data-expanded') !== 'true';
+                        setCategoryExpanded(key, expanded);
+                    });
+                });
+
+                categoryInputs.forEach(function (input) {
+                    input.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                    });
+                    input.addEventListener('change', function () {
+                        let key = input.getAttribute('data-cookie-category');
+                        if (!key) {
+                            return;
+                        }
+                        setCategoryExpanded(key, true);
+                    });
+                });
+
                 popup.addEventListener('click', function (event) {
                     if (!event.target) {
                         return;
                     }
-                    var action = event.target.getAttribute('data-cookie-action');
+                    let action = event.target.getAttribute('data-cookie-action');
                     if (!action) {
                       return;
                     }
-                    var preferences = getSelectedPreferences();
+                    let preferences = getSelectedPreferences();
                     if (action === 'accept') {
                         preferences.analytics = true;
                         preferences.recordings = true;
@@ -629,10 +766,11 @@ class Brein_Cookie_Compliance_Frontend
                     }
 
                     persistPreferences(preferences);
+                    trackConsentChoice(action, preferences);
 
                     if ((action === 'accept' || action === 'save-preferences') && preferences.analytics && ajaxUrl) {
                         try {
-                            var body = new URLSearchParams();
+                            let body = new URLSearchParams();
                             body.append('action', 'brein_track_consent_visitor');
                             body.append('nonce', ajaxNonce);
                             body.append('path', window.location.pathname + (window.location.search || ''));
