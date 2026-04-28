@@ -397,8 +397,6 @@ class Brein_Cookie_Compliance_Frontend
             @media (max-width: 600px) {
                 .brein-cookie-popup {
                     padding: 16px;
-                    align-items: flex-end;
-                    justify-content: stretch;
                 }
                 .brein-cookie-popup__dialog {
                     max-width: none;

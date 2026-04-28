@@ -19,9 +19,6 @@ class Brein_Cookie_Compliance_Settings
     /** @var string|null */
     private $page_hook_suffix = null;
 
-    /** @var Brein_Role_Access_Manager|null */
-    private $role_access_manager;
-
     public function __construct()
     {
         add_action('admin_menu', array($this, 'register_menu'), 50);
@@ -29,17 +26,8 @@ class Brein_Cookie_Compliance_Settings
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
     }
 
-    public function set_role_access_manager($role_access_manager)
-    {
-        $this->role_access_manager = $role_access_manager;
-    }
-
     public function register_menu()
     {
-        if ($this->role_access_manager && !$this->role_access_manager->should_show_menu_item('brein-cookie-compliance')) {
-            return;
-        }
-
         $capability = $this->get_required_capability();
 
         $this->page_hook_suffix = add_submenu_page(
@@ -55,10 +43,6 @@ class Brein_Cookie_Compliance_Settings
 
     private function get_required_capability()
     {
-        if ($this->role_access_manager && $this->role_access_manager->user_can_access_section('simple_settings')) {
-            return 'edit_pages';
-        }
-
         return 'manage_options';
     }
 
@@ -393,10 +377,8 @@ class Brein_Cookie_Compliance_Settings
 
     public function sanitize_options($input)
     {
-        if ($this->role_access_manager && !$this->role_access_manager->user_can_access_section('simple_settings')) {
-            if (!current_user_can('manage_options')) {
-                wp_die(__('You do not have permission to update these settings.', 'brein-plugin'));
-            }
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have permission to update these settings.', 'brein-plugin'));
         }
 
         $output = array();
@@ -640,11 +622,7 @@ class Brein_Cookie_Compliance_Settings
 
     public function render_settings_page()
     {
-        if ($this->role_access_manager && !$this->role_access_manager->user_can_access_section('simple_settings')) {
-            wp_die(__('You do not have permission to access this page.', 'brein-plugin'));
-        }
-
-        if (!current_user_can('edit_pages')) {
+        if (!current_user_can('manage_options')) {
             wp_die(__('You do not have permission to access this page.', 'brein-plugin'));
         }
         $this->render_settings_interface(false);
@@ -652,12 +630,7 @@ class Brein_Cookie_Compliance_Settings
 
     public function render_embedded_settings()
     {
-        if ($this->role_access_manager && !$this->role_access_manager->user_can_access_section('simple_settings')) {
-            echo '<p>' . esc_html__('You do not have permission to access this section.', 'brein-plugin') . '</p>';
-            return;
-        }
-
-        if (!current_user_can('edit_pages')) {
+        if (!current_user_can('manage_options')) {
             echo '<p>' . esc_html__('You do not have permission to access this section.', 'brein-plugin') . '</p>';
             return;
         }

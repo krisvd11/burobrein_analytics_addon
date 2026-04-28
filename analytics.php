@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Buro Brein Analytics
- * Description: Analytics add-on for the Buro Brein plugin.
+ * Description: Standalone analytics and cookie compliance tools for WordPress.
  * Version: 1.0.0
  * Author: Buro Brein
  *
@@ -36,11 +36,7 @@ function run_brein_analytics_plugin()
         return;
     }
 
-    global $brein_role_access_manager;
-    $role_access_manager = isset($brein_role_access_manager) ? $brein_role_access_manager : null;
-    $tracking_capability = ($role_access_manager && $role_access_manager->user_can_access_section('technical'))
-        ? 'edit_pages'
-        : 'manage_options';
+    $tracking_capability = 'manage_options';
 
     $map_widget = new Brein_Map_Widget();
     $visitor_widget = new Brein_Visitor_Widget();
@@ -49,10 +45,9 @@ function run_brein_analytics_plugin()
     $funnel_widget = new Brein_Funnel_Widget($tracking_capability);
     $cookie_settings = new Brein_Cookie_Compliance_Settings();
 
-    $cookie_settings->set_role_access_manager($role_access_manager);
     new Brein_Cookie_Compliance_Setup();
 
-    new Brein_Analytics_Page($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget, $funnel_widget);
+    new Brein_Analytics_Page($map_widget, $visitor_widget, $weekly_widget, $tracking_widget, $funnel_widget);
 }
 
 run_brein_analytics_plugin();

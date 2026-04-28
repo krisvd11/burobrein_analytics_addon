@@ -11,7 +11,6 @@ if (!defined('ABSPATH')) {
 
 class Brein_Analytics_Page
 {
-    private $role_access_manager;
     private $map_widget;
     private $visitor_widget;
     private $weekly_widget;
@@ -19,13 +18,12 @@ class Brein_Analytics_Page
     private $funnel_widget;
     private $screen_hook;
 
-    public function __construct($role_access_manager, $map_widget, $visitor_widget, $weekly_widget, $tracking_widget = null, $funnel_widget = null)
+    public function __construct($map_widget, $visitor_widget, $weekly_widget, $tracking_widget = null, $funnel_widget = null)
     {
         if (!is_admin()) {
             return;
         }
 
-        $this->role_access_manager = $role_access_manager;
         $this->map_widget = $map_widget;
         $this->visitor_widget = $visitor_widget;
         $this->weekly_widget = $weekly_widget;
@@ -66,9 +64,6 @@ class Brein_Analytics_Page
 
     private function get_required_capability()
     {
-        if ($this->role_access_manager && $this->role_access_manager->user_can_access_section('technical')) {
-            return 'edit_pages';
-        }
         return 'manage_options';
     }
 

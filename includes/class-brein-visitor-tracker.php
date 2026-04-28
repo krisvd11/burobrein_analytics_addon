@@ -12,13 +12,14 @@ if (!defined('ABSPATH')) {
 class Brein_Visitor_Tracker
 {
     const TABLE = 'brein_visitors';
-    const EVENTS_TABLE = 'brein_recording_events';
+    const EVENTS_TABLE = 'brein_analytics_events';
+    const LEGACY_EVENTS_TABLE = 'brein_recording_events';
     const CONSENTS_TABLE = 'brein_cookie_consents';
     const COOKIE = 'brein_visitor_id';
     const CONSENT_COOKIE = 'brein_cookie_consent_id';
     const SESSION_COOKIE = 'brein_visitor_session';
     const RECORDING_SESSION_COOKIE = 'brein_recording_session_id';
-    const DB_VERSION = '1.8.0';
+    const DB_VERSION = '1.9.0';
     const SESSION_TTL = 1800;
     const DEFAULT_RETENTION_DAYS = 180;
 
@@ -27,7 +28,6 @@ class Brein_Visitor_Tracker
         add_action('init', array($this, 'maybe_upgrade_table'), 5);
         add_action('init', array($this, 'maybe_track_visitor'), 9);
         add_action('init', array($this, 'purge_expired_tracking_data'), 20);
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_click_tracking_assets'));
         add_action('wp_ajax_nopriv_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_brein_track_consent_visitor', array($this, 'ajax_track_consent_visitor'));
         add_action('wp_ajax_nopriv_brein_track_cookie_consent', array($this, 'ajax_track_cookie_consent'));
@@ -42,6 +42,7 @@ class Brein_Visitor_Tracker
 
         $charset_collate = $wpdb->get_charset_collate();
         $table_name = $wpdb->prefix . self::TABLE;
+        self::maybe_migrate_legacy_events_table($wpdb);
         $events_table = $wpdb->prefix . self::EVENTS_TABLE;
         $consents_table = $wpdb->prefix . self::CONSENTS_TABLE;
 
@@ -106,6 +107,19 @@ class Brein_Visitor_Tracker
         dbDelta($events_sql);
         dbDelta($consents_sql);
         update_option('brein_visitors_db_version', self::DB_VERSION);
+    }
+
+    private static function maybe_migrate_legacy_events_table($wpdb)
+    {
+        $legacy_table = $wpdb->prefix . self::LEGACY_EVENTS_TABLE;
+        $events_table = $wpdb->prefix . self::EVENTS_TABLE;
+
+        $legacy_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $legacy_table));
+        $events_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $events_table));
+
+        if ($legacy_exists === $legacy_table && $events_exists !== $events_table) {
+            $wpdb->query("RENAME TABLE {$legacy_table} TO {$events_table}");
+        }
     }
 
     public function maybe_upgrade_table()
@@ -340,117 +354,9 @@ class Brein_Visitor_Tracker
 
     public function ajax_track_recording_event()
     {
-        check_ajax_referer('brein_track_recording_event', 'nonce');
-
-        if ($this->is_admin_request() || $this->is_recording_preview_request()) {
-            wp_send_json_success(array('ignored' => true));
-        }
-
-        if (!$this->has_tracking_consent('recordings')) {
-            wp_send_json_error(array('message' => __('Consent required.', 'brein-plugin')));
-        }
-
-        $event_type = isset($_POST['event_type']) ? sanitize_key(wp_unslash($_POST['event_type'])) : '';
-        if (!in_array($event_type, array('click', 'scroll', 'mousemove'), true)) {
-            wp_send_json_error(array('message' => __('Unsupported event type.', 'brein-plugin')));
-        }
-
-        $visitor_id = isset($_COOKIE[self::COOKIE]) ? sanitize_text_field(wp_unslash($_COOKIE[self::COOKIE])) : '';
-        $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
-        if ($visitor_id === '') {
-            $visitor_id = $this->generate_visitor_id();
-            $this->set_visitor_cookie($visitor_id);
-        }
-
-        $geo = $this->lookup_geo($this->get_client_ip());
-        $country = !empty($geo['country']) ? $geo['country'] : 'Unknown';
-        $session = $this->get_session_state();
-
-        $payload = array();
-        if ($event_type === 'click') {
-            $class_names = array();
-            if (isset($_POST['class_names'])) {
-                $decoded_classes = json_decode(wp_unslash($_POST['class_names']), true);
-                if (is_array($decoded_classes)) {
-                    foreach ($decoded_classes as $class_name) {
-                        $class_name = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $class_name);
-                        if ($class_name !== '') {
-                            $class_names[] = $class_name;
-                        }
-                    }
-                    $class_names = array_values(array_unique($class_names));
-                }
-            }
-
-            $payload = array(
-                'timestamp_ms' => isset($_POST['timestamp_ms']) ? max(0, intval(wp_unslash($_POST['timestamp_ms']))) : $this->current_timestamp_ms(),
-                'selector' => isset($_POST['selector']) ? $this->sanitize_text_field_deep(wp_unslash($_POST['selector'])) : '',
-                'class_names' => $class_names,
-                'element_id' => isset($_POST['element_id']) ? preg_replace('/[^A-Za-z0-9_-]/', '', (string) wp_unslash($_POST['element_id'])) : '',
-                'viewport_width' => isset($_POST['viewport_width']) ? max(0, intval(wp_unslash($_POST['viewport_width']))) : 0,
-                'viewport_height' => isset($_POST['viewport_height']) ? max(0, intval(wp_unslash($_POST['viewport_height']))) : 0,
-                'x' => isset($_POST['x']) ? max(0, intval(wp_unslash($_POST['x']))) : 0,
-                'y' => isset($_POST['y']) ? max(0, intval(wp_unslash($_POST['y']))) : 0,
-            );
-        } elseif ($event_type === 'scroll') {
-            $payload = array(
-                'timestamp_ms' => isset($_POST['timestamp_ms']) ? max(0, intval(wp_unslash($_POST['timestamp_ms']))) : $this->current_timestamp_ms(),
-                'scroll_y' => isset($_POST['scroll_y']) ? max(0, intval(wp_unslash($_POST['scroll_y']))) : 0,
-                'viewport_width' => isset($_POST['viewport_width']) ? max(0, intval(wp_unslash($_POST['viewport_width']))) : 0,
-                'viewport_height' => isset($_POST['viewport_height']) ? max(0, intval(wp_unslash($_POST['viewport_height']))) : 0,
-            );
-        } elseif ($event_type === 'mousemove') {
-            $payload = array(
-                'timestamp_ms' => isset($_POST['timestamp_ms']) ? max(0, intval(wp_unslash($_POST['timestamp_ms']))) : $this->current_timestamp_ms(),
-                'viewport_width' => isset($_POST['viewport_width']) ? max(0, intval(wp_unslash($_POST['viewport_width']))) : 0,
-                'viewport_height' => isset($_POST['viewport_height']) ? max(0, intval(wp_unslash($_POST['viewport_height']))) : 0,
-                'x' => isset($_POST['x']) ? max(0, intval(wp_unslash($_POST['x']))) : 0,
-                'y' => isset($_POST['y']) ? max(0, intval(wp_unslash($_POST['y']))) : 0,
-            );
-        }
-
-        $this->store_recording_event(
-            array(
-                'visitor_id' => $visitor_id,
-                'session_id' => $session['session_id'],
-                'event_type' => $event_type,
-                'path' => isset($_POST['path']) ? $this->sanitize_text_field_deep(wp_unslash($_POST['path'])) : '',
-                'page_title' => isset($_POST['page_title']) ? $this->sanitize_text_field_deep(wp_unslash($_POST['page_title'])) : '',
-                'element_label' => isset($_POST['element_label']) ? $this->sanitize_text_field_deep(wp_unslash($_POST['element_label'])) : '',
-                'element_href' => isset($_POST['element_href']) ? esc_url_raw(wp_unslash($_POST['element_href'])) : '',
-                'referrer' => isset($_POST['referrer']) ? esc_url_raw(wp_unslash($_POST['referrer'])) : '',
-                'device' => $this->detect_device($user_agent),
-                'country' => $country,
-                'payload' => $payload,
-                'created_at' => current_time('mysql'),
-            )
-        );
-
+        // Interaction recordings are intentionally disabled; keep the endpoint as a no-op
+        // so older frontend scripts fail softly until caches are refreshed.
         wp_send_json_success();
-    }
-
-    public function enqueue_click_tracking_assets()
-    {
-        if (is_admin() || $this->is_recording_preview_request()) {
-            return;
-        }
-
-        wp_enqueue_script(
-            'brein-click-tracker',
-            plugins_url('assets/js/brein-click-tracker.js', BREIN_ANALYTICS_PLUGIN_FILE),
-            array(),
-            '1.0.0',
-            true
-        );
-
-        wp_localize_script(
-            'brein-click-tracker',
-            'breinClickTracker',
-            array(
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('brein_track_recording_event'),
-            )
-        );
     }
 
     private function has_tracking_consent($category = 'analytics')

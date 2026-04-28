@@ -1,1 +1,1 @@
-# burobrein_analytics_addon
+# Buro Brein Analytics
